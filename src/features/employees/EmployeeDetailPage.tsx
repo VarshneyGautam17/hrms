@@ -92,8 +92,7 @@ export function EmployeeDetailPage() {
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">{employee.name}</h1>
         <p className="text-sm text-slate-500">
-          {employee.employeeCode} · {employee.department ?? 'No department'} ·{' '}
-          <Badge tone={employee.status === 'ACTIVE' ? 'success' : 'default'}>{employee.status}</Badge>
+          {employee.employeeCode} · {employee.department ?? 'No department'}
         </p>
       </div>
 

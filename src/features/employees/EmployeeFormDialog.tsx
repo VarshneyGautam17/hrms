@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { createEmployee, updateEmployee, setEmployeeStatus } from '../../db/repositories/employees';
+import { createEmployee, updateEmployee } from '../../db/repositories/employees';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/Field';
 import { parseRupeeInputToPaise, paiseToRupees } from '../../utils/currency';
@@ -87,17 +87,6 @@ export function EmployeeFormDialog({ open, employee, onClose }: Props) {
     }
   }
 
-  async function handleToggleStatus() {
-    if (!employee) return;
-    setSaving(true);
-    try {
-      await setEmployeeStatus(employee.id, employee.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE');
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
@@ -130,22 +119,13 @@ export function EmployeeFormDialog({ open, employee, onClose }: Props) {
             </p>
           )}
 
-          <div className="col-span-full flex items-center justify-between gap-2 pt-2">
-            <div>
-              {employee && (
-                <Button type="button" variant="danger" onClick={handleToggleStatus} disabled={saving}>
-                  {employee.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate'}
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving}>
-                Save
-              </Button>
-            </div>
+          <div className="col-span-full flex items-center justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              Save
+            </Button>
           </div>
         </form>
       </div>

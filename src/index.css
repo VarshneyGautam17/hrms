@@ -12,3 +12,15 @@ body {
 #root {
   min-height: 100vh;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-area {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+  }
+}

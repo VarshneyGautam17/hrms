@@ -3,7 +3,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
 import { db } from '../../db/database';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/Card';
 import { formatPaiseAsINR } from '../../utils/currency';
 import { EmployeeFormDialog } from './EmployeeFormDialog';
@@ -12,19 +11,16 @@ import type { Employee } from '../../types';
 export function EmployeesPage() {
   const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [editing, setEditing] = useState<Employee | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   const filtered = useMemo(() => {
     if (!employees) return [];
     return employees.filter((e) => {
-      const matchesStatus = statusFilter === 'ALL' || e.status === statusFilter;
       const q = search.trim().toLowerCase();
-      const matchesSearch = !q || e.name.toLowerCase().includes(q) || e.employeeCode.toLowerCase().includes(q);
-      return matchesStatus && matchesSearch;
+      return !q || e.name.toLowerCase().includes(q) || e.employeeCode.toLowerCase().includes(q);
     });
-  }, [employees, search, statusFilter]);
+  }, [employees, search]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -52,16 +48,6 @@ export function EmployeesPage() {
           className="w-64 rounded-md border border-slate-300 px-3 py-2 text-sm"
           aria-label="Search employees"
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-          aria-label="Filter by status"
-        >
-          <option value="ALL">All statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-        </select>
       </div>
 
       {employees === undefined ? (
@@ -77,7 +63,6 @@ export function EmployeesPage() {
                 <th className="px-4 py-2 text-left font-medium text-slate-600">Name</th>
                 <th className="px-4 py-2 text-left font-medium text-slate-600">Department</th>
                 <th className="px-4 py-2 text-left font-medium text-slate-600">Monthly Salary</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-600">Status</th>
                 <th className="px-4 py-2 text-left font-medium text-slate-600">Actions</th>
               </tr>
             </thead>
@@ -92,9 +77,6 @@ export function EmployeesPage() {
                   </td>
                   <td className="px-4 py-2 text-slate-600">{e.department ?? '—'}</td>
                   <td className="px-4 py-2">{formatPaiseAsINR(e.monthlySalaryPaise)}</td>
-                  <td className="px-4 py-2">
-                    <Badge tone={e.status === 'ACTIVE' ? 'success' : 'default'}>{e.status}</Badge>
-                  </td>
                   <td className="px-4 py-2">
                     <button
                       className="text-sm font-medium text-slate-700 hover:underline"

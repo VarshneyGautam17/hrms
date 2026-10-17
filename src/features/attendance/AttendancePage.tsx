@@ -12,7 +12,7 @@ import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
 export function AttendancePage() {
   const [date, setDate] = useState(todayISO());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const employees = useLiveQuery(() => db.employees.where('status').equals('ACTIVE').sortBy('name'), []);
+  const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
   const dayAttendance = useLiveQuery(() => db.attendance.where('date').equals(date).toArray(), [date]);
 
   const attendanceByEmployee = useMemo(() => {

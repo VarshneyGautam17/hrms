@@ -44,7 +44,7 @@ export function DashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <SummaryCard label="Active Employees" value={today?.totalActiveEmployees ?? '—'} />
+            <SummaryCard label="Total Employees" value={today?.totalEmployees ?? '—'} />
             <SummaryCard label="Present Today" value={today?.presentToday ?? '—'} />
             <SummaryCard label="Half Day Today" value={today?.halfDayToday ?? '—'} />
             <SummaryCard label="Absent Today" value={today?.absentToday ?? '—'} />

@@ -5,7 +5,7 @@ import { previewSettlement } from './settlementService';
 import { todayISO, daysInPeriod } from '../utils/dates';
 
 export interface TodaySummary {
-  totalActiveEmployees: number;
+  totalEmployees: number;
   presentToday: number;
   halfDayToday: number;
   absentToday: number;
@@ -13,10 +13,7 @@ export interface TodaySummary {
 }
 
 export async function getTodaySummary(): Promise<TodaySummary> {
-  const [activeEmployees, todayAttendance] = await Promise.all([
-    db.employees.where('status').equals('ACTIVE').toArray(),
-    listAttendanceForDate(todayISO()),
-  ]);
+  const [employees, todayAttendance] = await Promise.all([db.employees.toArray(), listAttendanceForDate(todayISO())]);
 
   const byEmployee = new Map(todayAttendance.map((a) => [a.employeeId, a]));
 
@@ -25,7 +22,7 @@ export async function getTodaySummary(): Promise<TodaySummary> {
   let absentToday = 0;
   let notMarkedToday = 0;
 
-  for (const emp of activeEmployees) {
+  for (const emp of employees) {
     const record = byEmployee.get(emp.id);
     if (!record) {
       notMarkedToday += 1;
@@ -45,7 +42,7 @@ export async function getTodaySummary(): Promise<TodaySummary> {
   }
 
   return {
-    totalActiveEmployees: activeEmployees.length,
+    totalEmployees: employees.length,
     presentToday,
     halfDayToday,
     absentToday,
@@ -62,7 +59,7 @@ export interface MonthSummary {
 }
 
 export async function getMonthSummary(period: string): Promise<MonthSummary> {
-  const employees = await db.employees.where('status').equals('ACTIVE').toArray();
+  const employees = await db.employees.toArray();
   const days = daysInPeriod(period);
   const advances = await listAdvancesInRange(days[0], days[days.length - 1]);
   const totalAdvancesIssuedPaise = advances
@@ -93,13 +90,10 @@ export interface DashboardAlerts {
 }
 
 export async function getDashboardAlerts(): Promise<DashboardAlerts> {
-  const [activeEmployees, todayAttendance] = await Promise.all([
-    db.employees.where('status').equals('ACTIVE').toArray(),
-    listAttendanceForDate(todayISO()),
-  ]);
+  const [employees, todayAttendance] = await Promise.all([db.employees.toArray(), listAttendanceForDate(todayISO())]);
 
   const markedToday = new Set(todayAttendance.map((a) => a.employeeId));
-  const notMarkedToday = activeEmployees.filter((e) => !markedToday.has(e.id)).length;
+  const notMarkedToday = employees.filter((e) => !markedToday.has(e.id)).length;
 
   const advances = await db.advanceTransactions.toArray();
   const byEmployee = new Map<string, number>();

@@ -89,7 +89,7 @@ describe('page smoke tests (render without crashing)', () => {
   it('Salary & Records page renders and computes a preview', async () => {
     await createEmployee({ employeeCode: 'S5', name: 'Salary Person', joiningDate: '2026-01-01', monthlySalaryPaise: 2600000 });
     renderAt('/salary', <SalaryPage />);
-    await waitFor(() => expect(screen.getByText('Salary Calculation')).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText('Final Payable')).toBeInTheDocument(), { timeout: 3000 });
   });
 
   it('Backup page renders', async () => {

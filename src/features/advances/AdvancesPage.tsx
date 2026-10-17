@@ -11,7 +11,7 @@ import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
 import type { AdvanceTransactionType } from '../../types';
 
 export function AdvancesPage() {
-  const employees = useLiveQuery(() => db.employees.where('status').equals('ACTIVE').sortBy('name'), []);
+  const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
   const transactions = useLiveQuery(() => db.advanceTransactions.orderBy('date').reverse().toArray(), []);
 
   const [employeeId, setEmployeeId] = useState('');

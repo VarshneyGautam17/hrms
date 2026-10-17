@@ -1,18 +1,14 @@
 // Core domain types for the Attendance & Salary Management System.
 // Money is always stored as integer paise (1 rupee = 100 paise).
 
-export type EmployeeStatus = 'ACTIVE' | 'INACTIVE';
-
 export interface Employee {
   id: string;
   employeeCode: string;
   name: string;
   joiningDate: string; // ISO date yyyy-MM-dd
-  exitDate: string | null;
   phone: string | null;
   department: string | null;
   monthlySalaryPaise: number;
-  status: EmployeeStatus;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
 }
@@ -110,7 +106,7 @@ export interface AppMetadata {
   value: string;
 }
 
-export const DB_SCHEMA_VERSION = 3;
+export const DB_SCHEMA_VERSION = 4;
 
 export interface BackupFile {
   schemaVersion: number;

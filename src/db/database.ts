@@ -110,6 +110,28 @@ export class HrmsDatabase extends Dexie {
             delete record.weeklyOffDays;
           });
       });
+
+    // Schema version 4 — active/inactive employee status removed entirely;
+    // every employee is simply always counted.
+    this.version(4)
+      .stores({
+        employees: 'id, employeeCode, name',
+        attendance: 'id, &[employeeId+date], employeeId, date, status',
+        advanceTransactions: 'id, employeeId, date, type',
+        salaryPayments: 'id, employeeId, date, period',
+        salarySettlements: 'id, &[employeeId+period], employeeId, period, status',
+        settings: 'id',
+        appMetadata: 'key',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('employees')
+          .toCollection()
+          .modify((record: Record<string, unknown>) => {
+            delete record.status;
+            delete record.exitDate;
+          });
+      });
   }
 }
 

@@ -16,7 +16,7 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
+      <aside className="no-print hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
         <div className="px-4 py-5">
           <p className="text-sm font-semibold text-slate-900">HRMS</p>
           <p className="text-xs text-slate-500">Attendance &amp; Salary</p>
@@ -40,7 +40,7 @@ export function Layout() {
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+        <header className="no-print flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
           <p className="text-sm font-semibold">HRMS</p>
           <button
             type="button"
@@ -53,7 +53,7 @@ export function Layout() {
           </button>
         </header>
         {mobileOpen && (
-          <nav id="mobile-nav" className="flex flex-col gap-1 border-b border-slate-200 bg-white p-2 md:hidden" aria-label="Main navigation">
+          <nav id="mobile-nav" className="no-print flex flex-col gap-1 border-b border-slate-200 bg-white p-2 md:hidden" aria-label="Main navigation">
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}

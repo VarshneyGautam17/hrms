@@ -35,9 +35,9 @@ function emptyCounts(): AttendanceSummaryCounts {
  * Classifies every calendar day of a period for one employee, combining
  * explicit attendance marks with the fixed weekly off (every Monday).
  * Priority order: explicit attendance mark > weekly off > not marked
- * (treated as unpaid absent). Employment window (joining/exit date) is
- * respected so mid-month joiners/leavers are not penalized for days outside
- * their employment.
+ * (treated as unpaid absent). Days before the employee's joining date are
+ * excluded so a mid-month joiner is not penalized for days before they
+ * started.
  */
 export function summarizeAttendanceForEmployee(
   employee: Employee,
@@ -50,7 +50,7 @@ export function summarizeAttendanceForEmployee(
   const counts = emptyCounts();
 
   for (const date of daysInPeriod(period)) {
-    if (date < employee.joiningDate || (employee.exitDate && date > employee.exitDate)) {
+    if (date < employee.joiningDate) {
       days.push({ date, source: 'OUTSIDE_EMPLOYMENT', status: 'OUTSIDE_EMPLOYMENT', paid: false });
       continue;
     }

@@ -36,11 +36,9 @@ export async function createEmployee(input: NewEmployeeInput): Promise<Employee>
     employeeCode: input.employeeCode,
     name: input.name,
     joiningDate: input.joiningDate,
-    exitDate: null,
     phone: input.phone ?? null,
     department: input.department ?? null,
     monthlySalaryPaise: input.monthlySalaryPaise,
-    status: 'ACTIVE',
     createdAt: now,
     updatedAt: now,
   };
@@ -59,12 +57,4 @@ export async function updateEmployee(
     }
   }
   await db.employees.update(id, { ...changes, updatedAt: new Date().toISOString() });
-}
-
-export async function setEmployeeStatus(id: string, status: 'ACTIVE' | 'INACTIVE'): Promise<void> {
-  await db.employees.update(id, {
-    status,
-    exitDate: status === 'INACTIVE' ? new Date().toISOString().slice(0, 10) : null,
-    updatedAt: new Date().toISOString(),
-  });
 }
