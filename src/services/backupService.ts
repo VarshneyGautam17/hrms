@@ -1,4 +1,4 @@
-import { db } from '../db/database';
+import { db, ensureDefaultSettings } from '../db/database';
 import type { BackupFile } from '../types';
 import { DB_SCHEMA_VERSION } from '../types';
 
@@ -144,4 +144,28 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
 export async function readBackupFile(file: File): Promise<unknown> {
   const text = await file.text();
   return JSON.parse(text);
+}
+
+/**
+ * Permanently wipes every employee, attendance, advance, payment and
+ * settings record from this browser's database, then re-seeds the default
+ * settings row. There is no undo — export a backup first if the data might
+ * still be needed.
+ */
+export async function resetAllData(): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
+    async () => {
+      await Promise.all([
+        db.employees.clear(),
+        db.attendance.clear(),
+        db.advanceTransactions.clear(),
+        db.salaryPayments.clear(),
+        db.settings.clear(),
+        db.appMetadata.clear(),
+      ]);
+    },
+  );
+  await ensureDefaultSettings();
 }

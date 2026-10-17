@@ -91,9 +91,10 @@ describe('page smoke tests (render without crashing)', () => {
     await waitFor(() => expect(screen.getByText('Final Payable')).toBeInTheDocument(), { timeout: 3000 });
   });
 
-  it('Backup page renders', async () => {
+  it('Backup page renders with a reset-all-data option', async () => {
     renderAt('/backup', <BackupPage />);
     await waitFor(() => expect(screen.getByText('Backup & Restore')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Reset All Data' })).toBeInTheDocument();
   });
 
   it('Settings page renders and shows defaults', async () => {

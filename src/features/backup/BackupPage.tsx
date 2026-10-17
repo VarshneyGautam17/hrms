@@ -5,6 +5,7 @@ import {
   readBackupFile,
   validateBackup,
   restoreBackup,
+  resetAllData,
   type ValidationResult,
 } from '../../services/backupService';
 import { Button } from '../../components/ui/Button';
@@ -20,6 +21,10 @@ export function BackupPage() {
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   async function handleExport() {
     setExporting(true);
@@ -71,6 +76,18 @@ export function BackupPage() {
       });
     } finally {
       setPendingBackup(null);
+    }
+  }
+
+  async function handleConfirmReset() {
+    setResetConfirmOpen(false);
+    setResetting(true);
+    setResetMessage(null);
+    try {
+      await resetAllData();
+      setResetMessage('All data has been reset. The app is now empty, as if freshly installed.');
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -137,6 +154,18 @@ export function BackupPage() {
         )}
       </section>
 
+      <section className="rounded-lg border border-red-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-red-700">Reset All Data</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Permanently deletes every employee, attendance, advance, payment and setting from this browser. This
+          cannot be undone — export a backup first if you might need this data again.
+        </p>
+        <Button className="mt-3" variant="danger" onClick={() => setResetConfirmOpen(true)} disabled={resetting}>
+          {resetting ? 'Resetting…' : 'Reset All Data'}
+        </Button>
+        {resetMessage && <p className="mt-2 text-sm text-green-700">{resetMessage}</p>}
+      </section>
+
       <ConfirmDialog
         open={confirmOpen}
         title="Restore backup?"
@@ -154,6 +183,16 @@ export function BackupPage() {
           setPendingBackup(null);
         }}
         onConfirm={handleConfirmRestore}
+      />
+
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        title="Reset all data?"
+        description="This permanently deletes every employee, attendance, advance, payment and setting from this browser. This cannot be undone."
+        confirmLabel="Reset All Data"
+        danger
+        onCancel={() => setResetConfirmOpen(false)}
+        onConfirm={handleConfirmReset}
       />
     </div>
   );
