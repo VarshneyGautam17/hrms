@@ -1,5 +1,12 @@
 {
   "projects": {
     "default": "hrms-a28cd"
+  },
+  "targets": {
+    "hrms-a28cd": {
+      "hosting": {
+        "admin": ["deepak-electricals-admin"]
+      }
+    }
   }
 }

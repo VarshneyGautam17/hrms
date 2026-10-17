@@ -14,7 +14,7 @@ A small HR app (employees, attendance, advances, salary slips) built with React 
    - Add the same 6 values as **GitHub repository secrets** — Settings → Secrets and variables → Actions — named exactly as in `.env.local.example` (`VITE_FIREBASE_API_KEY`, etc.).
    - Generate a deploy credential: Firebase Console → Project settings → **Service accounts** tab → **Generate new private key** (downloads a JSON file).
    - Add that JSON file's entire contents as one more GitHub secret named **`FIREBASE_SERVICE_ACCOUNT`**.
-   - Pushing to `master` runs [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml), which builds and publishes to `https://hrms-a28cd.web.app`.
+   - Pushing to `master` runs [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml), which builds and publishes to `https://deepak-electricals-admin.web.app` (the `admin` hosting target, mapped to that site in `.firebaserc`).
 8. **(Optional) Deploy manually from your own machine** instead of/alongside GitHub Actions: install the CLI once (`npm install -g firebase-tools`), run `firebase login`, then `npm run build && firebase deploy`. `.firebaserc` already points at the `hrms-a28cd` project.
 
 The first time you open the app (locally or on the deployed site), use the "create one" link on the sign-in screen to make your account — the same email/password works on every device and keeps your data in sync.
