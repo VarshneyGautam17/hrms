@@ -1,11 +1,18 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { CalendarDays, CalendarX, ReceiptText, Wallet } from 'lucide-react';
 import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
 import { formatDisplayDate, todayISO } from '../../utils/dates';
-import { Badge, StatusBadge } from '../../components/ui/Badge';
-import { Card, EmptyState } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { TextField } from '../../components/ui/Field';
+import { ToneBadge, StatusBadge } from '@/components/status-badge';
+import { SummaryCard } from '@/components/summary-card';
+import { EmptyState } from '@/components/empty-state';
+import { PageLoader } from '@/components/spinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DatePicker } from '@/components/date-picker';
 import { computeOutstandingBalance, giveAdvance, recordRepayment, advancesForEmployeeQuery } from '../../db/repositories/advances';
 import { setAttendanceStatus, attendanceForEmployeeQuery, attendanceDocRef } from '../../db/repositories/attendance';
 import { employeeDocRef } from '../../db/repositories/employees';
@@ -33,7 +40,7 @@ export function EmployeeDetailPage() {
   const todayRecord = useDocument<AttendanceRecord>(id ? attendanceDocRef(id, today) : null, [id, today]);
 
   if (!id) return null;
-  if (employee === undefined) return <p className="text-sm text-slate-500">Loading…</p>;
+  if (employee === undefined) return <PageLoader />;
 
   const employeeId = id;
   const emp = employee;
@@ -55,6 +62,7 @@ export function EmployeeDetailPage() {
       { key: 'notes', label: 'Notes' },
     ]);
     downloadCSV(`attendance-${emp.employeeCode}.csv`, csv);
+    toast.info('Attendance CSV downloaded', { description: `attendance-${emp.employeeCode}.csv` });
   }
 
   function exportAdvanceLedgerCSV() {
@@ -77,45 +85,37 @@ export function EmployeeDetailPage() {
       { key: 'notes', label: 'Notes' },
     ]);
     downloadCSV(`advance-ledger-${emp.employeeCode}.csv`, csv);
+    toast.info('Advance ledger CSV downloaded', { description: `advance-ledger-${emp.employeeCode}.csv` });
   }
 
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <Link to="/employees" className="text-sm text-slate-500 hover:underline">
+        <Link to="/employees" className="text-sm text-muted-foreground hover:underline">
           ← Back to Employees
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">{employee.name}</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="mt-1 text-xl font-semibold">{employee.name}</h1>
+        <p className="text-sm text-muted-foreground">
           {employee.employeeCode} · {employee.department ?? 'No department'}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <p className="text-xs uppercase text-slate-500">Monthly Salary</p>
-          <p className="mt-1 text-lg font-semibold">{formatPaiseAsINR(employee.monthlySalaryPaise)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase text-slate-500">Joining Date</p>
-          <p className="mt-1 text-lg font-semibold">{formatDisplayDate(employee.joiningDate)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase text-slate-500">Outstanding Advance</p>
-          <p className="mt-1 text-lg font-semibold">{formatPaiseAsINR(outstanding)}</p>
-        </Card>
+        <SummaryCard label="Monthly Salary" value={formatPaiseAsINR(employee.monthlySalaryPaise)} icon={ReceiptText} tone="success" />
+        <SummaryCard label="Joining Date" value={formatDisplayDate(employee.joiningDate)} icon={CalendarDays} tone="info" />
+        <SummaryCard label="Outstanding Advance" value={formatPaiseAsINR(outstanding)} icon={Wallet} tone="warning" />
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">Today's Attendance</h2>
-        <p className="mt-1 text-xs text-slate-500">{formatDisplayDate(today)}</p>
+      <section className="rounded-xl border bg-card p-4">
+        <h2 className="text-sm font-semibold">Today's Attendance</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{formatDisplayDate(today)}</p>
         <div className="mt-3">
           <AttendanceStatusButtons value={todayRecord?.status ?? null} onChange={handleMarkToday} aria-label="Today's attendance status" />
         </div>
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Attendance Calendar (Last 3 Months)</h2>
+        <h2 className="mb-2 text-sm font-semibold">Attendance Calendar (Last 3 Months)</h2>
         <EmployeeAttendanceCalendar employee={employee} />
       </section>
 
@@ -123,79 +123,81 @@ export function EmployeeDetailPage() {
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Recent Attendance</h2>
-          <button className="text-sm text-slate-600 hover:underline" onClick={exportAttendanceCSV}>
+          <h2 className="text-sm font-semibold">Recent Attendance</h2>
+          <button className="text-sm text-muted-foreground hover:underline" onClick={exportAttendanceCSV}>
             Export CSV
           </button>
         </div>
         {!attendance || attendance.length === 0 ? (
-          <EmptyState title="No attendance recorded yet" />
+          <EmptyState icon={CalendarX} title="No attendance recorded yet" />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Date</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Status</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+          <div className="scrollbar-thin overflow-x-auto rounded-xl border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Notes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {attendance.slice(0, 15).map((a) => (
-                  <tr key={a.id}>
-                    <td className="px-4 py-2">{formatDisplayDate(a.date)}</td>
-                    <td className="px-4 py-2">
+                  <TableRow key={a.id}>
+                    <TableCell className="text-muted-foreground">{formatDisplayDate(a.date)}</TableCell>
+                    <TableCell>
                       <StatusBadge status={a.status} />
-                    </td>
-                    <td className="px-4 py-2 text-slate-500">{a.notes ?? '—'}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{a.notes ?? '—'}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </section>
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Advance Ledger</h2>
-          <button className="text-sm text-slate-600 hover:underline" onClick={exportAdvanceLedgerCSV}>
+          <h2 className="text-sm font-semibold">Advance Ledger</h2>
+          <button className="text-sm text-muted-foreground hover:underline" onClick={exportAdvanceLedgerCSV}>
             Export CSV
           </button>
         </div>
         {!advances || advances.length === 0 ? (
-          <EmptyState title="No advances recorded" />
+          <EmptyState icon={Wallet} title="No advances recorded" />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Date</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Type</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Amount</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+          <div className="scrollbar-thin overflow-x-auto rounded-xl border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Notes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {advances.map((tx) => (
-                  <tr key={tx.id}>
-                    <td className="px-4 py-2">{formatDisplayDate(tx.date)}</td>
-                    <td className="px-4 py-2">
-                      <Badge tone={tx.type === 'ADVANCE' ? 'warning' : 'success'}>{tx.type === 'ADVANCE' ? 'Advance Given' : 'Repayment'}</Badge>
-                    </td>
-                    <td className="px-4 py-2">{formatPaiseAsINR(tx.amountPaise)}</td>
-                    <td className="px-4 py-2 text-slate-500">{tx.notes ?? '—'}</td>
-                  </tr>
+                  <TableRow key={tx.id}>
+                    <TableCell className="text-muted-foreground">{formatDisplayDate(tx.date)}</TableCell>
+                    <TableCell>
+                      <ToneBadge tone={tx.type === 'ADVANCE' ? 'warning' : 'success'}>
+                        {tx.type === 'ADVANCE' ? 'Advance Given' : 'Repayment'}
+                      </ToneBadge>
+                    </TableCell>
+                    <TableCell>{formatPaiseAsINR(tx.amountPaise)}</TableCell>
+                    <TableCell className="text-muted-foreground">{tx.notes ?? '—'}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">Salary Slip</h2>
-        <p className="mt-1 text-xs text-slate-500">
+      <section className="rounded-xl border bg-card p-4">
+        <h2 className="text-sm font-semibold">Salary Slip</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
           View and print this employee's salary slip for any month from the{' '}
           <Link to="/salary" className="underline">
             Salary &amp; Records
@@ -219,71 +221,64 @@ function AdvanceSection({
   const [date, setDate] = useState(todayISO());
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
     const amountPaise = parseRupeeInputToPaise(amount);
     if (amountPaise <= 0) {
-      setError('Amount must be greater than zero.');
+      toast.warning('Amount must be greater than zero.');
       return;
     }
     try {
       if (mode === 'ADVANCE') {
         await giveAdvance({ employeeId, date, amountPaise, notes: notes.trim() || null });
-        setSuccess('Advance recorded.');
+        toast.success('Advance recorded.');
       } else {
         await recordRepayment({ employeeId, date, amountPaise, notes: notes.trim() || null });
-        setSuccess('Repayment recorded.');
+        toast.success('Repayment recorded.');
       }
       setAmount('');
       setNotes('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record transaction.');
+      toast.error('Failed to record transaction', { description: err instanceof Error ? err.message : undefined });
     }
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4">
+    <section className="rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-700">Advance Payment</h2>
-        <p className="text-sm text-slate-500">
-          Outstanding balance: <span className="font-semibold text-slate-900">{formatPaiseAsINR(outstanding)}</span>
+        <h2 className="text-sm font-semibold">Advance Payment</h2>
+        <p className="text-sm text-muted-foreground">
+          Outstanding balance: <span className="font-semibold text-foreground">{formatPaiseAsINR(outstanding)}</span>
         </p>
       </div>
 
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMode('ADVANCE')}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === 'ADVANCE' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}
-        >
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant={mode === 'ADVANCE' ? 'default' : 'secondary'} onClick={() => setMode('ADVANCE')}>
           Give Advance
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('REPAYMENT')}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === 'REPAYMENT' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}
-        >
+        </Button>
+        <Button type="button" size="sm" variant={mode === 'REPAYMENT' ? 'default' : 'secondary'} onClick={() => setMode('REPAYMENT')}>
           Record Repayment
-        </button>
+        </Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-3 flex flex-wrap items-end gap-3">
-        <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <TextField label="Amount (₹)" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <TextField label="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-56" />
-        <Button type="submit">{mode === 'ADVANCE' ? 'Give Advance' : 'Record Repayment'}</Button>
+      <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="emp-advance-date">Date</Label>
+          <DatePicker id="emp-advance-date" value={date} onChange={setDate} disabled={(d) => d > new Date()} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="emp-advance-amount">Amount (₹)</Label>
+          <Input id="emp-advance-amount" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="emp-advance-notes">Notes (optional)</Label>
+          <Input id="emp-advance-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <Button type="submit" className="sm:col-span-2 lg:col-span-1 lg:w-fit">
+          {mode === 'ADVANCE' ? 'Give Advance' : 'Record Repayment'}
+        </Button>
       </form>
-      {error && (
-        <p className="mt-2 text-sm text-red-600" role="alert">
-          {error}
-        </p>
-      )}
-      {success && <p className="mt-2 text-sm text-green-700">{success}</p>}
     </section>
   );
 }

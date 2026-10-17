@@ -1,14 +1,21 @@
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { CalendarDays, Users, UserCheck, UserX } from 'lucide-react';
 import { setAttendanceStatus, attendanceForDateQuery } from '../../db/repositories/attendance';
 import { employeesQuery } from '../../db/repositories/employees';
 import { settingsDocRef } from '../../db/repositories/settings';
 import { useCollection, useDocument } from '../../firebase/hooks';
 import { AttendanceStatusButtons } from './AttendanceStatusButtons';
 import { EmployeeCalendarModal } from './EmployeeCalendarModal';
-import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { SummaryCard } from '../../components/ui/Card';
-import { TextField } from '../../components/ui/Field';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SummaryCard } from '@/components/summary-card';
+import { EmptyState } from '@/components/empty-state';
+import { DatePicker } from '@/components/date-picker';
+import { PageLoader } from '@/components/spinner';
 import { todayISO, weekdayOf, isWeeklyOffDay, WEEKDAY_LABELS } from '../../utils/dates';
 import type { AppSettings, AttendanceRecord, Employee, MarkedAttendanceStatus } from '../../types';
 
@@ -38,15 +45,24 @@ export function AttendancePage() {
     [employees, date],
   );
 
-  if (!employees || !settings) return <p className="text-sm text-slate-500">Loading…</p>;
+  if (!employees || !settings) return <PageLoader />;
 
   const isWeeklyOff = isWeeklyOffDay(weekdayOf(date), settings.weeklyOffDay);
+  const weeklyOffLabel = WEEKDAY_LABELS[settings.weeklyOffDay];
 
   async function markAll(status: MarkedAttendanceStatus) {
     if (visibleEmployees.length === 0) return;
+    if (isWeeklyOff) {
+      toast.warning('Marking attendance on a weekly-off day', {
+        description: `${weeklyOffLabel} is configured as a paid weekly off.`,
+      });
+    }
     setBulkBusy(true);
     try {
       await Promise.all(visibleEmployees.map((emp) => setAttendanceStatus(emp.id, date, status)));
+      toast.success(`Marked ${visibleEmployees.length} employee${visibleEmployees.length === 1 ? '' : 's'} as ${status === 'PRESENT' ? 'Present' : 'Absent'}`);
+    } catch (err) {
+      toast.error('Failed to bulk-mark attendance', { description: err instanceof Error ? err.message : undefined });
     } finally {
       setBulkBusy(false);
     }
@@ -55,47 +71,52 @@ export function AttendancePage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 sm:w-80">
-        <SummaryCard label="Present" value={presentCount} />
-        <SummaryCard label="Absent" value={absentCount} />
+        <SummaryCard label="Present" value={presentCount} icon={UserCheck} tone="success" />
+        <SummaryCard label="Absent" value={absentCount} icon={UserX} tone="danger" />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Attendance</h1>
-          <p className="text-sm text-slate-500">Mark Present, Half Day or Absent for each employee on the selected date.</p>
+          <h1 className="text-xl font-semibold">Attendance</h1>
+          <p className="text-sm text-muted-foreground">Mark Present, Half Day or Absent for each employee on the selected date.</p>
         </div>
-        <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="attendance-date">Date</Label>
+          <DatePicker id="attendance-date" value={date} onChange={setDate} disabled={(d) => d > new Date()} className="w-full sm:w-44" />
+        </div>
       </div>
 
-      {isWeeklyOff && <Badge>Weekly Off ({WEEKDAY_LABELS[settings.weeklyOffDay]})</Badge>}
+      {isWeeklyOff && <Badge variant="secondary">Weekly Off ({weeklyOffLabel})</Badge>}
 
       {visibleEmployees.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3">
-          <span className="text-sm font-medium text-slate-700">Bulk mark for all employees:</span>
-          <Button variant="secondary" disabled={bulkBusy} onClick={() => markAll('PRESENT')}>
-            Mark All Present
-          </Button>
-          <Button variant="secondary" disabled={bulkBusy} onClick={() => markAll('ABSENT')}>
-            Mark All Absent
-          </Button>
+        <div className="flex flex-col items-start gap-2 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <span className="text-sm font-medium">Bulk mark for all employees:</span>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" disabled={bulkBusy} onClick={() => markAll('PRESENT')}>
+              Mark All Present
+            </Button>
+            <Button variant="secondary" disabled={bulkBusy} onClick={() => markAll('ABSENT')}>
+              Mark All Absent
+            </Button>
+          </div>
         </div>
       )}
 
       {employees.length === 0 ? (
-        <p className="text-sm text-slate-500">No employees yet. Add employees first.</p>
+        <EmptyState icon={Users} title="No employees yet" description="Add employees first." />
       ) : visibleEmployees.length === 0 ? (
-        <p className="text-sm text-slate-500">No employees had joined yet as of this date.</p>
+        <EmptyState icon={CalendarDays} title="No employees had joined yet as of this date." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Employee</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        <div className="scrollbar-thin animate-in fade-in-0 overflow-x-auto rounded-xl border duration-300">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky left-0 bg-background">Employee</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {visibleEmployees.map((emp) => (
                 <AttendanceRow
                   key={emp.id}
@@ -106,8 +127,8 @@ export function AttendancePage() {
                   onShowCalendar={() => setCalendarEmployee(emp)}
                 />
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -151,46 +172,41 @@ function AttendanceRow({
   }
 
   return (
-    <tr>
-      <td className="px-3 py-2 font-medium text-slate-900">
+    <TableRow>
+      <TableCell className="sticky left-0 bg-background font-medium">
         <div className="flex items-center gap-2">
           {employeeName}
           <button
             type="button"
             onClick={onShowCalendar}
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={`View attendance calendar for ${employeeName}`}
             title="View attendance calendar"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
+            <CalendarDays className="h-4 w-4" />
           </button>
         </div>
-      </td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell>
         <AttendanceStatusButtons
           value={record?.status ?? null}
           onChange={handleStatus}
           size="sm"
           aria-label={`Attendance status for ${employeeName}`}
         />
-      </td>
-      <td className="px-3 py-2">
-        <input
+      </TableCell>
+      <TableCell>
+        <Input
           type="text"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           onBlur={handleNotesBlur}
           placeholder="Optional note"
-          className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm"
+          className="w-40 sm:w-48"
           aria-label={`Notes for ${employeeName}`}
         />
         {savedAt && <span className="ml-1 text-xs text-green-600">Saved</span>}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }

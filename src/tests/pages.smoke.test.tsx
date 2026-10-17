@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { differenceInCalendarMonths, startOfMonth } from 'date-fns';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { __resetFakeFirestore } from './mocks/fakeFirestore';
 import { createEmployee } from '../db/repositories/employees';
@@ -66,13 +67,32 @@ describe('page smoke tests (render without crashing)', () => {
   it('hides an employee from the attendance list for dates before they joined', async () => {
     await createEmployee({ employeeCode: 'S8', name: 'Future Joiner', joiningDate: '2026-06-15', monthlySalaryPaise: 10000 });
     renderAt('/attendance', <AttendancePage />);
+    await waitFor(() => expect(screen.getByText('Future Joiner')).toBeInTheDocument());
 
-    const dateInput = await waitFor(() => screen.getByLabelText('Date'));
-    fireEvent.change(dateInput, { target: { value: '2026-06-01' } });
+    const user = userEvent.setup();
+
+    async function pickDateInOpenCalendar(target: Date, navigate: boolean) {
+      await user.click(screen.getByLabelText('Date'));
+      if (navigate) {
+        const diff = differenceInCalendarMonths(startOfMonth(new Date()), target);
+        const navLabel = diff >= 0 ? 'Go to the Previous Month' : 'Go to the Next Month';
+        for (let i = 0; i < Math.abs(diff); i++) {
+          await user.click(await screen.findByRole('button', { name: navLabel }));
+        }
+      }
+      const dayButton = await waitFor(() => {
+        const el = document.querySelector<HTMLButtonElement>(`[data-day="${target.toLocaleDateString()}"]`);
+        if (!el) throw new Error(`Day button for ${target.toDateString()} not found`);
+        return el;
+      });
+      await user.click(dayButton);
+    }
+
+    await pickDateInOpenCalendar(new Date(2026, 5, 1), true);
     await waitFor(() => expect(screen.getByText('No employees had joined yet as of this date.')).toBeInTheDocument());
     expect(screen.queryByText('Future Joiner')).not.toBeInTheDocument();
 
-    fireEvent.change(dateInput, { target: { value: '2026-06-15' } });
+    await pickDateInOpenCalendar(new Date(2026, 5, 15), false);
     await waitFor(() => expect(screen.getByText('Future Joiner')).toBeInTheDocument());
   });
 

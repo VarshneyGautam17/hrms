@@ -4,6 +4,7 @@ import { router } from './app/routes';
 import { useAuthUser } from './firebase/auth';
 import { LoginPage } from './features/auth/LoginPage';
 import { ensureDefaultSettings } from './db/repositories/settings';
+import { Spinner } from './components/spinner';
 
 export default function App() {
   const { user, loading } = useAuthUser();
@@ -15,7 +16,13 @@ export default function App() {
     if (user) void ensureDefaultSettings();
   }, [user]);
 
-  if (loading) return <p className="p-6 text-sm text-slate-500">Loading…</p>;
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Spinner className="h-6 w-6 text-muted-foreground" />
+      </div>
+    );
+  }
   if (!user) return <LoginPage />;
 
   return <RouterProvider router={router} />;

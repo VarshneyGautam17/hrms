@@ -13,6 +13,7 @@ export function createDefaultSettings(): AppSettings {
   return {
     id: SETTINGS_DOC_ID,
     weeklyOffDay: 1, // Monday
+    adminEmail: null,
     updatedAt: new Date().toISOString(),
   };
 }

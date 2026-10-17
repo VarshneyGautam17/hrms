@@ -39,9 +39,9 @@ export function MonthGrid({
   const leadingBlanks = Array.from({ length: firstWeekday });
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      {showHeader && <p className="mb-2 text-sm font-semibold text-slate-700">{formatDisplayPeriod(period)}</p>}
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-400">
+    <div className="rounded-xl border bg-card p-3">
+      {showHeader && <p className="mb-2 text-sm font-semibold">{formatDisplayPeriod(period)}</p>}
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
           <span key={i}>{d}</span>
         ))}

@@ -51,6 +51,21 @@ export interface SalaryPayment {
   createdAt: string;
 }
 
+export interface SalaryFinalization {
+  id: string; // `${employeeId}_${period}` — one finalization per employee per period, ever.
+  employeeId: string;
+  period: string; // yyyy-MM
+  finalizedAt: string; // ISO datetime
+  /** The exact calculation as it was at the moment of finalization — never recomputed afterwards. */
+  snapshot: SalaryCalculationSnapshot;
+  /** The advance-ledger repayment transaction created by this finalization, if any was recovered. */
+  advanceTransactionId: string | null;
+  /** The salary-payment record created by this finalization. */
+  paymentId: string;
+  /** Where the slip was emailed, if an admin email was configured at the time. */
+  emailedTo: string | null;
+}
+
 export interface SalaryCalculationSnapshot {
   monthlySalaryPaise: number;
   divisor: number;
@@ -68,6 +83,8 @@ export interface SalaryCalculationSnapshot {
   alreadyPaidPaise: number;
   availableForRecoveryPaise: number;
   outstandingAdvanceBeforePaise: number;
+  /** The maximum that could be auto-recovered this period: min(outstanding, available-for-recovery). */
+  maxRecoverablePaise: number;
   advanceRecoveredPaise: number;
   advanceCarriedForwardPaise: number;
   finalPayablePaise: number;
@@ -77,10 +94,12 @@ export interface AppSettings {
   id: string; // singleton 'default'
   /** Which weekday is the company-wide paid weekly off, for all employees (0 = Sunday ... 6 = Saturday). */
   weeklyOffDay: number;
+  /** Where finalized salary slips are emailed. Null until configured. */
+  adminEmail: string | null;
   updatedAt: string;
 }
 
-export const DB_SCHEMA_VERSION = 7;
+export const DB_SCHEMA_VERSION = 8;
 
 export interface BackupFile {
   schemaVersion: number;
@@ -92,5 +111,7 @@ export interface BackupFile {
     advanceTransactions: AdvanceTransaction[];
     salaryPayments: SalaryPayment[];
     settings: AppSettings[];
+    /** Optional for backward compatibility: older backups (schema < 8) were exported before finalization existed. */
+    salaryFinalizations?: SalaryFinalization[];
   };
 }

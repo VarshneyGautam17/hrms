@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Users } from 'lucide-react';
 import { employeesQuery } from '../../db/repositories/employees';
 import { useCollection } from '../../firebase/hooks';
-import { Button } from '../../components/ui/Button';
-import { EmptyState } from '../../components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState } from '@/components/empty-state';
+import { TableSkeleton } from '@/components/table-skeleton';
 import { formatPaiseAsINR } from '../../utils/currency';
 import { EmployeeFormDialog } from './EmployeeFormDialog';
 import type { Employee } from '../../types';
@@ -26,8 +30,8 @@ export function EmployeesPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Employees</h1>
-          <p className="text-sm text-slate-500">{employees?.length ?? 0} total employees</p>
+          <h1 className="text-xl font-semibold">Employees</h1>
+          <p className="text-sm text-muted-foreground">{employees?.length ?? 0} total employees</p>
         </div>
         <Button
           onClick={() => {
@@ -40,46 +44,46 @@ export function EmployeesPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <input
+        <Input
           type="search"
           placeholder="Search by name or code"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full sm:w-72"
           aria-label="Search employees"
         />
       </div>
 
       {employees === undefined ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <TableSkeleton cols={5} />
       ) : filtered.length === 0 ? (
-        <EmptyState title="No employees found" description="Add your first employee to get started." />
+        <EmptyState icon={Users} title="No employees found" description="Add your first employee to get started." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium text-slate-600">Code</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-600">Name</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-600">Department</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-600">Monthly Salary</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        <div className="scrollbar-thin animate-in fade-in-0 overflow-x-auto rounded-xl border duration-300">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead className="sticky left-0 bg-background">Name</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Monthly Salary</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map((e) => (
-                <tr key={e.id}>
-                  <td className="px-4 py-2">{e.employeeCode}</td>
-                  <td className="px-4 py-2">
-                    <Link to={`/employees/${e.id}`} className="font-medium text-slate-900 hover:underline">
+                <TableRow key={e.id}>
+                  <TableCell className="text-muted-foreground">{e.employeeCode}</TableCell>
+                  <TableCell className="sticky left-0 bg-background">
+                    <Link to={`/employees/${e.id}`} className="font-medium hover:text-primary hover:underline">
                       {e.name}
                     </Link>
-                  </td>
-                  <td className="px-4 py-2 text-slate-600">{e.department ?? '—'}</td>
-                  <td className="px-4 py-2">{formatPaiseAsINR(e.monthlySalaryPaise)}</td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{e.department ?? '—'}</TableCell>
+                  <TableCell>{formatPaiseAsINR(e.monthlySalaryPaise)}</TableCell>
+                  <TableCell>
                     <button
-                      className="text-sm font-medium text-slate-700 hover:underline"
+                      className="text-sm font-medium text-primary hover:underline"
                       onClick={() => {
                         setEditing(e);
                         setShowForm(true);
@@ -87,11 +91,11 @@ export function EmployeesPage() {
                     >
                       Edit
                     </button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

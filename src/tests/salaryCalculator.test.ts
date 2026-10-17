@@ -95,4 +95,71 @@ describe('calculateSalary', () => {
     expect(result.notMarkedDays).toBe(2);
     expect(result.unpaidAbsentDays).toBe(0);
   });
+
+  it('never lets a negative "other deduction" inflate the payable amount', () => {
+    const result = calculateSalary({ ...base, otherDeductionPaise: -50_000_00 });
+    expect(result.otherDeductionPaise).toBe(0);
+    expect(result.finalPayablePaise).toBe(26_000_00);
+  });
+
+  it('never lets a negative already-paid amount inflate the payable amount', () => {
+    const result = calculateSalary({ ...base, alreadyPaidPaise: -50_000_00 });
+    expect(result.alreadyPaidPaise).toBe(0);
+    expect(result.finalPayablePaise).toBe(26_000_00);
+  });
+
+  it('treats a negative outstanding advance as zero', () => {
+    const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: -1_000_00 });
+    expect(result.outstandingAdvanceBeforePaise).toBe(0);
+    expect(result.advanceRecoveredPaise).toBe(0);
+  });
+
+  it('exposes the maximum feasible recovery alongside the actual recovered amount', () => {
+    const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: 5_000_00 });
+    expect(result.maxRecoverablePaise).toBe(5_000_00);
+    expect(result.advanceRecoveredPaise).toBe(5_000_00);
+  });
+
+  describe('explicit advanceRepaymentPaise override', () => {
+    it('recovers exactly the chosen amount instead of the automatic maximum', () => {
+      const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: 10_000_00, advanceRepaymentPaise: 2_000_00 });
+      expect(result.maxRecoverablePaise).toBe(10_000_00); // still reported, for the UI to suggest
+      expect(result.advanceRecoveredPaise).toBe(2_000_00);
+      expect(result.finalPayablePaise).toBe(26_000_00 - 2_000_00);
+      expect(result.advanceCarriedForwardPaise).toBe(8_000_00);
+    });
+
+    it('clamps the chosen amount to the outstanding balance — cannot recover more than is owed', () => {
+      const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: 1_000_00, advanceRepaymentPaise: 50_000_00 });
+      expect(result.advanceRecoveredPaise).toBe(1_000_00);
+      expect(result.advanceCarriedForwardPaise).toBe(0);
+      expect(result.finalPayablePaise).toBe(26_000_00 - 1_000_00);
+    });
+
+    it('clamps the chosen amount to what is actually available this period — final payable never goes negative', () => {
+      const result = calculateSalary({
+        ...base,
+        presentDays: 0,
+        unpaidAbsentDays: 30,
+        outstandingAdvanceBeforePaise: 10_000_00,
+        advanceRepaymentPaise: 10_000_00,
+      });
+      expect(result.availableForRecoveryPaise).toBe(0);
+      expect(result.advanceRecoveredPaise).toBe(0);
+      expect(result.finalPayablePaise).toBe(0);
+    });
+
+    it('rejects a negative chosen repayment amount, recovering nothing', () => {
+      const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: 5_000_00, advanceRepaymentPaise: -5_000_00 });
+      expect(result.advanceRecoveredPaise).toBe(0);
+      expect(result.finalPayablePaise).toBe(26_000_00);
+    });
+
+    it('a zero chosen amount recovers nothing, even though recovery was feasible', () => {
+      const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: 5_000_00, advanceRepaymentPaise: 0 });
+      expect(result.advanceRecoveredPaise).toBe(0);
+      expect(result.advanceCarriedForwardPaise).toBe(5_000_00);
+      expect(result.finalPayablePaise).toBe(26_000_00);
+    });
+  });
 });

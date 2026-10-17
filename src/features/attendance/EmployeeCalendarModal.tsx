@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { attendanceForEmployeeQuery } from '../../db/repositories/attendance';
 import { settingsDocRef } from '../../db/repositories/settings';
 import { useCollection, useDocument } from '../../firebase/hooks';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
 import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/spinner';
 import { currentPeriod, daysInPeriod, formatDisplayPeriod, periodToDate } from '../../utils/dates';
 import { format, addMonths, subMonths } from 'date-fns';
 import type { AppSettings, AttendanceRecord, Employee } from '../../types';
@@ -17,16 +21,6 @@ interface Props {
 export function EmployeeCalendarModal({ employee, onClose }: Props) {
   const [period, setPeriod] = useState(currentPeriod());
   const [editingDate, setEditingDate] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    ref.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const days = daysInPeriod(period);
   const firstDate = days[0];
@@ -42,73 +36,62 @@ export function EmployeeCalendarModal({ employee, onClose }: Props) {
     attendance && settings ? summarizeAttendanceForEmployee(employee, period, attendance, settings.weeklyOffDay).days : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onClick={onClose}>
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="employee-calendar-title"
-        tabIndex={-1}
-        className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl focus:outline-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 id="employee-calendar-title" className="text-base font-semibold text-slate-900">
-            {employee.name}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100"
-            aria-label="Close calendar"
-          >
-            ✕
-          </button>
-        </div>
+    <>
+      <Dialog open onOpenChange={(next) => !next && onClose()}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{employee.name}</DialogTitle>
+          </DialogHeader>
 
-        <div className="mt-3 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setPeriod(format(subMonths(periodToDate(period), 1), 'yyyy-MM'))}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm hover:bg-slate-50"
-            aria-label="Previous month"
-          >
-            ←
-          </button>
-          <span className="text-sm font-medium text-slate-700">{formatDisplayPeriod(period)}</span>
-          <button
-            type="button"
-            onClick={() => setPeriod(format(addMonths(periodToDate(period), 1), 'yyyy-MM'))}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm hover:bg-slate-50"
-            aria-label="Next month"
-          >
-            →
-          </button>
-        </div>
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setPeriod(format(subMonths(periodToDate(period), 1), 'yyyy-MM'))}
+              aria-label="Previous month"
+            >
+              <ChevronLeft />
+            </Button>
+            <span className="text-sm font-medium">{formatDisplayPeriod(period)}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setPeriod(format(addMonths(periodToDate(period), 1), 'yyyy-MM'))}
+              aria-label="Next month"
+            >
+              <ChevronRight />
+            </Button>
+          </div>
 
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
-          {ATTENDANCE_LEGEND.map((item) => (
-            <span key={item.label} className="inline-flex items-center gap-1">
-              <span className={`h-2.5 w-2.5 rounded-sm ${item.className}`} />
-              {item.label}
-            </span>
-          ))}
-        </div>
+          <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+            {ATTENDANCE_LEGEND.map((item) => (
+              <span key={item.label} className="inline-flex items-center gap-1">
+                <span className={`h-2.5 w-2.5 rounded-sm ${item.className}`} />
+                {item.label}
+              </span>
+            ))}
+          </div>
 
-        <div className="mt-3">
-          {!classification ? (
-            <p className="text-sm text-slate-500">Loading…</p>
-          ) : (
-            <MonthGrid period={period} days={classification} showHeader={false} onDayClick={setEditingDate} />
+          <div>
+            {!classification ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                <Spinner />
+                Loading…
+              </div>
+            ) : (
+              <MonthGrid period={period} days={classification} showHeader={false} onDayClick={setEditingDate} />
+            )}
+          </div>
+
+          {period !== currentPeriod() && (
+            <button type="button" onClick={() => setPeriod(currentPeriod())} className="text-xs text-muted-foreground hover:underline">
+              Back to current month
+            </button>
           )}
-        </div>
-
-        {period !== currentPeriod() && (
-          <button type="button" onClick={() => setPeriod(currentPeriod())} className="mt-3 text-xs text-slate-500 hover:underline">
-            Back to current month
-          </button>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {editingDate && (
         <DayAttendancePopup
@@ -118,6 +101,6 @@ export function EmployeeCalendarModal({ employee, onClose }: Props) {
           onClose={() => setEditingDate(null)}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -1,7 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { createEmployee, updateEmployee } from '../../db/repositories/employees';
-import { Button } from '../../components/ui/Button';
-import { TextField } from '../../components/ui/Field';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DatePicker } from '@/components/date-picker';
+import { Spinner } from '@/components/spinner';
 import { parseRupeeInputToPaise, paiseToRupees } from '../../utils/currency';
 import { todayISO } from '../../utils/dates';
 import type { Employee } from '../../types';
@@ -42,8 +47,6 @@ export function EmployeeFormDialog({ open, employee, onClose }: Props) {
     setError(null);
   }, [open, employee]);
 
-  if (!open) return null;
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -79,56 +82,76 @@ export function EmployeeFormDialog({ open, employee, onClose }: Props) {
           monthlySalaryPaise,
         });
       }
+      toast.success(employee ? 'Employee updated' : 'Employee added', {
+        description: `${name.trim()} (${employeeCode.trim()})`,
+      });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save employee.');
+      const message = err instanceof Error ? err.message : 'Failed to save employee.';
+      setError(message);
+      toast.error('Failed to save employee', { description: message });
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
-        <h2 className="text-base font-semibold text-slate-900">{employee ? 'Edit Employee' : 'Add Employee'}</h2>
-        <form className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-          <TextField label="Employee Code" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required />
-          <TextField label="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <TextField
-            label="Joining Date"
-            type="date"
-            value={joiningDate}
-            onChange={(e) => setJoiningDate(e.target.value)}
-            required
-          />
-          <TextField label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <TextField label="Department (optional)" value={department} onChange={(e) => setDepartment(e.target.value)} />
-          <TextField
-            label="Monthly Salary (₹)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={salaryRupees}
-            onChange={(e) => setSalaryRupees(e.target.value)}
-            required
-          />
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{employee ? 'Edit Employee' : 'Add Employee'}</DialogTitle>
+        </DialogHeader>
+        <form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="employeeCode">Employee Code</Label>
+            <Input id="employeeCode" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="name">Full Name</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="joiningDate">Joining Date</Label>
+            <DatePicker id="joiningDate" value={joiningDate} onChange={setJoiningDate} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="phone">Phone (optional)</Label>
+            <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="department">Department (optional)</Label>
+            <Input id="department" value={department} onChange={(e) => setDepartment(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="salary">Monthly Salary (₹)</Label>
+            <Input
+              id="salary"
+              type="number"
+              min="0"
+              step="0.01"
+              value={salaryRupees}
+              onChange={(e) => setSalaryRupees(e.target.value)}
+              required
+            />
+          </div>
 
           {error && (
-            <p className="col-span-full text-sm text-red-600" role="alert">
+            <p className="col-span-full text-sm text-destructive" role="alert">
               {error}
             </p>
           )}
 
-          <div className="col-span-full flex items-center justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+          <DialogFooter className="col-span-full -mx-0 -mb-0 border-t-0 bg-transparent p-0 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
+              {saving && <Spinner />}
               Save
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { signIn, signUp } from '../../firebase/auth';
-import { Button } from '../../components/ui/Button';
-import { TextField } from '../../components/ui/Field';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function LoginPage() {
   const [mode, setMode] = useState<'SIGN_IN' | 'SIGN_UP'>('SIGN_IN');
@@ -19,64 +22,78 @@ export function LoginPage() {
         await signIn(email.trim(), password);
       } else {
         await signUp(email.trim(), password);
+        toast.success('Account created');
       }
     } catch (err) {
-      setError(err instanceof Error ? friendlyAuthError(err.message) : 'Something went wrong.');
+      const message = err instanceof Error ? friendlyAuthError(err.message) : 'Something went wrong.';
+      setError(message);
+      toast.error(mode === 'SIGN_IN' ? 'Sign in failed' : 'Could not create account', { description: message });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">HRMS</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {mode === 'SIGN_IN' ? 'Sign in to access your synced data.' : 'Create your account to get started.'}
-        </p>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-100 via-background to-sky-100 p-4">
+      <Card className="w-full max-w-sm shadow-xl">
+        <CardContent className="p-6 sm:p-8">
+          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-base font-bold text-white shadow-md">
+            DE
+          </span>
+          <h1 className="mt-4 text-center text-lg font-semibold">Deepak Electricals</h1>
+          <p className="mt-1 text-center text-sm text-muted-foreground">
+            {mode === 'SIGN_IN' ? 'Sign in to access your synced data.' : 'Create your account to get started.'}
+          </p>
 
-        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-          <TextField
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            autoComplete={mode === 'SIGN_IN' ? 'current-password' : 'new-password'}
-            hint={mode === 'SIGN_UP' ? 'At least 6 characters.' : undefined}
-          />
+          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                autoComplete={mode === 'SIGN_IN' ? 'current-password' : 'new-password'}
+              />
+              {mode === 'SIGN_UP' && <span className="text-xs text-muted-foreground">At least 6 characters.</span>}
+            </div>
 
-          {error && (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          )}
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
 
-          <Button type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'SIGN_IN' ? 'Sign In' : 'Create Account'}
-          </Button>
-        </form>
+            <Button type="submit" disabled={busy}>
+              {busy ? 'Please wait…' : mode === 'SIGN_IN' ? 'Sign In' : 'Create Account'}
+            </Button>
+          </form>
 
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === 'SIGN_IN' ? 'SIGN_UP' : 'SIGN_IN');
-            setError(null);
-          }}
-          className="mt-4 text-sm text-slate-500 hover:underline"
-        >
-          {mode === 'SIGN_IN' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === 'SIGN_IN' ? 'SIGN_UP' : 'SIGN_IN');
+              setError(null);
+            }}
+            className="mt-4 text-sm text-muted-foreground hover:underline"
+          >
+            {mode === 'SIGN_IN' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
+          </button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,11 +1,18 @@
 import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
+import { Users, Wallet } from 'lucide-react';
 import { giveAdvance, recordRepayment, computeOutstandingBalance, allAdvancesQuery } from '../../db/repositories/advances';
 import { employeesQuery } from '../../db/repositories/employees';
 import { useCollection } from '../../firebase/hooks';
-import { Button } from '../../components/ui/Button';
-import { SelectField, TextField } from '../../components/ui/Field';
-import { Badge } from '../../components/ui/Badge';
-import { EmptyState, SummaryCard } from '../../components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ToneBadge } from '@/components/status-badge';
+import { EmptyState } from '@/components/empty-state';
+import { SummaryCard } from '@/components/summary-card';
+import { DatePicker } from '@/components/date-picker';
 import { formatDisplayDate, todayISO } from '../../utils/dates';
 import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
 import type { AdvanceTransaction, AdvanceTransactionType, Employee } from '../../types';
@@ -19,8 +26,6 @@ export function AdvancesPage() {
   const [type, setType] = useState<AdvanceTransactionType>('ADVANCE');
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const employeeNameById = new Map((employees ?? []).map((e) => [e.id, `${e.name} (${e.employeeCode})`]));
 
@@ -35,142 +40,173 @@ export function AdvancesPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
     if (!employeeId) {
-      setError('Select an employee.');
+      toast.warning('Select an employee first.');
       return;
     }
     const amountPaise = parseRupeeInputToPaise(amount);
     if (amountPaise <= 0) {
-      setError('Amount must be greater than zero.');
+      toast.warning('Amount must be greater than zero.');
       return;
     }
     try {
       if (type === 'ADVANCE') {
         await giveAdvance({ employeeId, date, amountPaise, notes: notes.trim() || null });
-        setSuccess('Advance entry recorded.');
+        toast.success('Advance entry recorded.');
       } else {
         await recordRepayment({ employeeId, date, amountPaise, notes: notes.trim() || null });
-        setSuccess('Repayment entry recorded.');
+        toast.success('Repayment entry recorded.');
       }
       setAmount('');
       setNotes('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record entry.');
+      toast.error('Failed to record entry', { description: err instanceof Error ? err.message : undefined });
     }
   }
 
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Advances</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-xl font-semibold">Advances</h1>
+        <p className="text-sm text-muted-foreground">
           Select an employee and log the advance payment he asked for. The total outstanding advance per employee is
           calculated automatically.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <SummaryCard label="Total Outstanding (All Employees)" value={formatPaiseAsINR(totalOutstanding)} />
-        <SummaryCard label="Employees with Advances" value={outstandingByEmployee.filter((r) => r.totalAdvanced > 0).length} />
+        <SummaryCard
+          label="Total Outstanding (All Employees)"
+          value={formatPaiseAsINR(totalOutstanding)}
+          icon={Wallet}
+          tone="warning"
+        />
+        <SummaryCard
+          label="Employees with Advances"
+          value={outstandingByEmployee.filter((r) => r.totalAdvanced > 0).length}
+          icon={Users}
+          tone="info"
+        />
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
-        <SelectField label="Employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="w-56">
-          <option value="">Select employee</option>
-          {employees?.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name} ({e.employeeCode})
-            </option>
-          ))}
-        </SelectField>
-        <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <SelectField label="Entry Type" value={type} onChange={(e) => setType(e.target.value as AdvanceTransactionType)}>
-          <option value="ADVANCE">Advance Given</option>
-          <option value="REPAYMENT">Repayment</option>
-        </SelectField>
-        <TextField label="Amount (₹)" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <TextField label="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-48" />
-        <Button type="submit">{type === 'ADVANCE' ? 'Add Advance Entry' : 'Add Repayment Entry'}</Button>
-        {error && (
-          <p className="w-full text-sm text-red-600" role="alert">
-            {error}
-          </p>
-        )}
-        {success && <p className="w-full text-sm text-green-700">{success}</p>}
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2 sm:items-end lg:grid-cols-5"
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label>Employee</Label>
+          <Select value={employeeId} onValueChange={(v) => setEmployeeId(v ?? '')}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select employee" />
+            </SelectTrigger>
+            <SelectContent>
+              {employees?.map((e) => (
+                <SelectItem key={e.id} value={e.id} label={`${e.name} (${e.employeeCode})`}>
+                  {e.name} ({e.employeeCode})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="advance-date">Date</Label>
+          <DatePicker id="advance-date" value={date} onChange={setDate} disabled={(d) => d > new Date()} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Entry Type</Label>
+          <Select value={type} onValueChange={(v) => v && setType(v as AdvanceTransactionType)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ADVANCE" label="Advance Given">Advance Given</SelectItem>
+              <SelectItem value="REPAYMENT" label="Repayment">Repayment</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="advance-amount">Amount (₹)</Label>
+          <Input id="advance-amount" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="advance-notes">Notes (optional)</Label>
+          <Input id="advance-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <Button type="submit" className="sm:col-span-2 lg:col-span-5 lg:w-fit">
+          {type === 'ADVANCE' ? 'Add Advance Entry' : 'Add Repayment Entry'}
+        </Button>
       </form>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Outstanding by Employee</h2>
+        <h2 className="mb-2 text-sm font-semibold">Outstanding by Employee</h2>
         {outstandingByEmployee.length === 0 ? (
-          <EmptyState title="No active employees yet" />
+          <EmptyState icon={Users} title="No active employees yet" />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Employee</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Total Advanced</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Total Repaid</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Outstanding</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+          <div className="scrollbar-thin overflow-x-auto rounded-xl border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky left-0 bg-background">Employee</TableHead>
+                  <TableHead>Total Advanced</TableHead>
+                  <TableHead>Total Repaid</TableHead>
+                  <TableHead>Outstanding</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {outstandingByEmployee.map((row) => (
-                  <tr key={row.employee.id}>
-                    <td className="px-4 py-2 font-medium text-slate-900">
-                      {row.employee.name} <span className="text-slate-400">({row.employee.employeeCode})</span>
-                    </td>
-                    <td className="px-4 py-2">{formatPaiseAsINR(row.totalAdvanced)}</td>
-                    <td className="px-4 py-2">{formatPaiseAsINR(row.totalRepaid)}</td>
-                    <td className="px-4 py-2">
+                  <TableRow key={row.employee.id}>
+                    <TableCell className="sticky left-0 bg-background font-medium">
+                      {row.employee.name} <span className="text-muted-foreground">({row.employee.employeeCode})</span>
+                    </TableCell>
+                    <TableCell>{formatPaiseAsINR(row.totalAdvanced)}</TableCell>
+                    <TableCell>{formatPaiseAsINR(row.totalRepaid)}</TableCell>
+                    <TableCell>
                       {row.outstanding > 0 ? (
-                        <Badge tone="warning">{formatPaiseAsINR(row.outstanding)}</Badge>
+                        <ToneBadge tone="warning">{formatPaiseAsINR(row.outstanding)}</ToneBadge>
                       ) : (
-                        <Badge tone="success">₹0.00</Badge>
+                        <ToneBadge tone="success">₹0.00</ToneBadge>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">All Advance Entries</h2>
+        <h2 className="mb-2 text-sm font-semibold">All Advance Entries</h2>
         {!transactions || transactions.length === 0 ? (
-          <EmptyState title="No advance entries yet" />
+          <EmptyState icon={Wallet} title="No advance entries yet" />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Date</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Employee</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Type</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Amount</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+          <div className="scrollbar-thin overflow-x-auto rounded-xl border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Notes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {transactions.map((tx) => (
-                  <tr key={tx.id}>
-                    <td className="px-4 py-2">{formatDisplayDate(tx.date)}</td>
-                    <td className="px-4 py-2 font-medium text-slate-900">{employeeNameById.get(tx.employeeId) ?? 'Unknown'}</td>
-                    <td className="px-4 py-2">
-                      <Badge tone={tx.type === 'ADVANCE' ? 'warning' : 'success'}>
+                  <TableRow key={tx.id}>
+                    <TableCell className="text-muted-foreground">{formatDisplayDate(tx.date)}</TableCell>
+                    <TableCell className="font-medium">{employeeNameById.get(tx.employeeId) ?? 'Unknown'}</TableCell>
+                    <TableCell>
+                      <ToneBadge tone={tx.type === 'ADVANCE' ? 'warning' : 'success'}>
                         {tx.type === 'ADVANCE' ? 'Advance Given' : 'Repayment'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-2">{formatPaiseAsINR(tx.amountPaise)}</td>
-                    <td className="px-4 py-2 text-slate-500">{tx.notes ?? '—'}</td>
-                  </tr>
+                      </ToneBadge>
+                    </TableCell>
+                    <TableCell>{formatPaiseAsINR(tx.amountPaise)}</TableCell>
+                    <TableCell className="text-muted-foreground">{tx.notes ?? '—'}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </section>

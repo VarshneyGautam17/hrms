@@ -2,6 +2,7 @@ import { getDocs, setDoc, query, where, orderBy } from 'firebase/firestore';
 import { userCollection, userDoc } from '../../firebase/paths';
 import type { AdvanceTransaction } from '../../types';
 import { newId } from '../../utils/id';
+import { todayISO } from '../../utils/dates';
 
 const COLLECTION = 'advanceTransactions';
 
@@ -41,6 +42,9 @@ export interface NewAdvanceInput {
 export async function addAdvanceTransaction(input: NewAdvanceInput): Promise<AdvanceTransaction> {
   if (input.amountPaise <= 0) {
     throw new Error('Transaction amount must be greater than zero.');
+  }
+  if (input.date > todayISO()) {
+    throw new Error('Advance transactions cannot be dated in the future.');
   }
   const transaction: AdvanceTransaction = {
     id: newId(),

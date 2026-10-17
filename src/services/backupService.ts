@@ -2,10 +2,18 @@ import { getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { userCollection, userDoc } from '../firebase/paths';
 import { firestore } from '../firebase/config';
 import { createDefaultSettings } from '../db/repositories/settings';
-import type { BackupFile, Employee, AttendanceRecord, AdvanceTransaction, SalaryPayment, AppSettings } from '../types';
+import type {
+  BackupFile,
+  Employee,
+  AttendanceRecord,
+  AdvanceTransaction,
+  SalaryPayment,
+  SalaryFinalization,
+  AppSettings,
+} from '../types';
 import { DB_SCHEMA_VERSION } from '../types';
 
-const COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments'] as const;
+const COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments', 'salaryFinalizations'] as const;
 
 async function fetchAll<T>(name: string): Promise<T[]> {
   const snap = await getDocs(userCollection(name));
@@ -13,11 +21,12 @@ async function fetchAll<T>(name: string): Promise<T[]> {
 }
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [employees, attendance, advanceTransactions, salaryPayments, settingsRow] = await Promise.all([
+  const [employees, attendance, advanceTransactions, salaryPayments, salaryFinalizations, settingsRow] = await Promise.all([
     fetchAll<Employee>('employees'),
     fetchAll<AttendanceRecord>('attendance'),
     fetchAll<AdvanceTransaction>('advanceTransactions'),
     fetchAll<SalaryPayment>('salaryPayments'),
+    fetchAll<SalaryFinalization>('salaryFinalizations'),
     fetchAll<AppSettings>('settings'),
   ]);
 
@@ -30,6 +39,7 @@ export async function exportBackup(): Promise<BackupFile> {
       attendance,
       advanceTransactions,
       salaryPayments,
+      salaryFinalizations,
       settings: settingsRow,
     },
   };
@@ -149,11 +159,14 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
   for (const name of REQUIRED_COLLECTIONS) {
     await deleteAllInCollection(name);
   }
+  await deleteAllInCollection('salaryFinalizations');
 
   await batchWriteAll(backup.data.employees.map((e) => ({ path: 'employees', id: e.id, data: e })));
   await batchWriteAll(backup.data.attendance.map((a) => ({ path: 'attendance', id: `${a.employeeId}_${a.date}`, data: a })));
   await batchWriteAll(backup.data.advanceTransactions.map((a) => ({ path: 'advanceTransactions', id: a.id, data: a })));
   await batchWriteAll(backup.data.salaryPayments.map((p) => ({ path: 'salaryPayments', id: p.id, data: p })));
+  // Older backups (schema < 8) predate finalization and simply won't have any.
+  await batchWriteAll((backup.data.salaryFinalizations ?? []).map((f) => ({ path: 'salaryFinalizations', id: f.id, data: f })));
   for (const s of backup.data.settings) {
     await setDoc(userDoc('settings', s.id), s);
   }

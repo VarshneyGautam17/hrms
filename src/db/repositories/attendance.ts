@@ -1,6 +1,7 @@
 import { getDoc, getDocs, setDoc, query, where } from 'firebase/firestore';
 import { userCollection, userDoc } from '../../firebase/paths';
 import { newId } from '../../utils/id';
+import { todayISO } from '../../utils/dates';
 import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
 
 const COLLECTION = 'attendance';
@@ -62,6 +63,9 @@ export async function setAttendanceStatus(
   status: MarkedAttendanceStatus,
   notes: string | null = null,
 ): Promise<AttendanceRecord> {
+  if (date > todayISO()) {
+    throw new Error('Attendance cannot be marked for a future date.');
+  }
   const existing = await getAttendanceForEmployeeDate(employeeId, date);
   const record: AttendanceRecord = {
     id: existing?.id ?? newId(),

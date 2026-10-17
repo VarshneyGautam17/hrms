@@ -5,6 +5,7 @@ import { useCollection, useDocument } from '../../firebase/hooks';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
 import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
+import { PageLoader } from '@/components/spinner';
 import { currentPeriod, previousPeriods, daysInPeriod } from '../../utils/dates';
 import type { AppSettings, AttendanceRecord, Employee } from '../../types';
 
@@ -23,11 +24,11 @@ export function EmployeeAttendanceCalendar({ employee }: { employee: Employee })
   );
   const settings = useDocument<AppSettings>(settingsDocRef(), []);
 
-  if (!attendance || !settings) return <p className="text-sm text-slate-500">Loading calendar…</p>;
+  if (!attendance || !settings) return <PageLoader label="Loading calendar…" />;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         {ATTENDANCE_LEGEND.map((item) => (
           <span key={item.label} className="inline-flex items-center gap-1.5">
             <span className={`h-3 w-3 rounded-sm ${item.className}`} />

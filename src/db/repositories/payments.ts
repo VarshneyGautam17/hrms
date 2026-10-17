@@ -2,6 +2,7 @@ import { getDocs, setDoc, query, where } from 'firebase/firestore';
 import { userCollection, userDoc } from '../../firebase/paths';
 import type { SalaryPayment } from '../../types';
 import { newId } from '../../utils/id';
+import { todayISO } from '../../utils/dates';
 
 const COLLECTION = 'salaryPayments';
 
@@ -30,8 +31,11 @@ export interface NewPaymentInput {
 }
 
 export async function addSalaryPayment(input: NewPaymentInput): Promise<SalaryPayment> {
-  if (input.amountPaise <= 0) {
-    throw new Error('Payment amount must be greater than zero.');
+  if (input.amountPaise < 0) {
+    throw new Error('Payment amount cannot be negative.');
+  }
+  if (input.date > todayISO()) {
+    throw new Error('Salary payments cannot be dated in the future.');
   }
   const payment: SalaryPayment = {
     id: newId(),

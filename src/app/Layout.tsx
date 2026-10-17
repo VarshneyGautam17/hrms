@@ -1,78 +1,95 @@
-import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import {
+  Users,
+  CalendarCheck2,
+  Wallet,
+  ReceiptText,
+  DatabaseBackup,
+  Settings,
+} from 'lucide-react';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Employees', end: true },
-  { to: '/attendance', label: 'Attendance' },
-  { to: '/advances', label: 'Advances' },
-  { to: '/salary', label: 'Salary & Records' },
-  { to: '/backup', label: 'Backup & Restore' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/', label: 'Employees', end: true, icon: Users, color: 'text-sky-300' },
+  { to: '/attendance', label: 'Attendance', icon: CalendarCheck2, color: 'text-emerald-300' },
+  { to: '/advances', label: 'Advances', icon: Wallet, color: 'text-amber-300' },
+  { to: '/salary', label: 'Salary & Records', icon: ReceiptText, color: 'text-fuchsia-300' },
+  { to: '/backup', label: 'Backup & Restore', icon: DatabaseBackup, color: 'text-cyan-300' },
+  { to: '/settings', label: 'Settings', icon: Settings, color: 'text-indigo-200' },
 ];
 
 export function Layout() {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { pathname } = useLocation();
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <aside className="no-print hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
-        <div className="px-4 py-5">
-          <p className="text-sm font-semibold text-slate-900">HRMS</p>
-          <p className="text-xs text-slate-500">Attendance &amp; Salary</p>
-        </div>
-        <nav className="flex flex-1 flex-col gap-1 px-2" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
+    <SidebarProvider>
+      <Sidebar
+        collapsible="icon"
+        className="no-print [&>div>[data-slot=sidebar-inner]]:bg-gradient-to-b [&>div>[data-slot=sidebar-inner]]:from-indigo-600 [&>div>[data-slot=sidebar-inner]]:to-violet-800"
+      >
+        <SidebarHeader>
+          <div className="flex items-center gap-2.5 px-1 py-1">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 text-sm font-bold text-white shadow-sm ring-1 ring-white/20">
+              DE
+            </span>
+            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+              <p className="truncate text-sm font-semibold text-white">Deepak Electricals</p>
+              <p className="truncate text-xs text-indigo-200">Attendance &amp; Salary</p>
+            </div>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarMenu>
+              {NAV_ITEMS.map((item) => {
+                const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
+                return (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      tooltip={item.label}
+                      render={<NavLink to={item.to} end={item.end} />}
+                      className={cn(
+                        'text-indigo-100 hover:bg-white/10 hover:text-white data-active:bg-white/15 data-active:text-white data-active:shadow-sm',
+                      )}
+                    >
+                      <item.icon className={cn(item.color)} />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
 
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="no-print flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
-          <p className="text-sm font-semibold">HRMS</p>
-          <button
-            type="button"
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
-            onClick={() => setMobileOpen((v) => !v)}
-          >
-            Menu
-          </button>
+      <SidebarInset>
+        <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="h-5" />
+          <p className="truncate text-sm font-medium">Deepak Electricals</p>
         </header>
-        {mobileOpen && (
-          <nav id="mobile-nav" className="no-print flex flex-col gap-1 border-b border-slate-200 bg-white p-2 md:hidden" aria-label="Main navigation">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={() => setMobileOpen(false)}
-                className={({ isActive }) =>
-                  `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        )}
 
-        <main className="flex-1 p-4 md:p-6">
-          <Outlet />
+        <main className="flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8">
+          <div key={pathname} className="animate-in fade-in-0 slide-in-from-bottom-1 mx-auto w-full max-w-7xl duration-300">
+            <Outlet />
+          </div>
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
