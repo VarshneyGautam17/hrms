@@ -5,6 +5,7 @@ import { setAttendanceStatus } from '../../db/repositories/attendance';
 import { AttendanceStatusButtons } from './AttendanceStatusButtons';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { SummaryCard } from '../../components/ui/Card';
 import { TextField } from '../../components/ui/Field';
 import { todayISO, weekdayOf, isWeeklyOffDay } from '../../utils/dates';
 import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
@@ -20,6 +21,12 @@ export function AttendancePage() {
     dayAttendance?.forEach((a) => map.set(a.employeeId, a));
     return map;
   }, [dayAttendance]);
+
+  const presentCount = useMemo(
+    () => (dayAttendance ?? []).filter((a) => a.status === 'PRESENT').length,
+    [dayAttendance],
+  );
+  const absentCount = useMemo(() => (dayAttendance ?? []).filter((a) => a.status === 'ABSENT').length, [dayAttendance]);
 
   if (!employees) return <p className="text-sm text-slate-500">Loading…</p>;
 
@@ -37,6 +44,11 @@ export function AttendancePage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:w-80">
+        <SummaryCard label="Present" value={presentCount} />
+        <SummaryCard label="Absent" value={absentCount} />
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Attendance</h1>

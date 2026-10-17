@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
 import { db } from '../../db/database';
 import { Button } from '../../components/ui/Button';
-import { EmptyState, SummaryCard } from '../../components/ui/Card';
+import { EmptyState } from '../../components/ui/Card';
 import { formatPaiseAsINR } from '../../utils/currency';
 import { EmployeeFormDialog } from './EmployeeFormDialog';
-import { getTodaySummary, type TodaySummary } from '../../services/dashboardService';
 import type { Employee } from '../../types';
 
 export function EmployeesPage() {
@@ -14,11 +13,6 @@ export function EmployeesPage() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Employee | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [today, setToday] = useState<TodaySummary | null>(null);
-
-  useEffect(() => {
-    getTodaySummary().then(setToday);
-  }, [employees]);
 
   const filtered = useMemo(() => {
     if (!employees) return [];
@@ -43,11 +37,6 @@ export function EmployeesPage() {
         >
           Add Employee
         </Button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:w-80">
-        <SummaryCard label="Present Today" value={today?.presentToday ?? '—'} />
-        <SummaryCard label="Absent Today" value={today?.absentToday ?? '—'} />
       </div>
 
       <div className="flex flex-wrap gap-3">

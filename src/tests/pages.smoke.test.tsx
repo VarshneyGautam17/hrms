@@ -48,12 +48,10 @@ describe('page smoke tests (render without crashing)', () => {
     await waitFor(() => expect(screen.getByText(/no employees found/i)).toBeInTheDocument());
   });
 
-  it('Employees page renders and lists an employee, with today\'s present/absent counts', async () => {
+  it('Employees page renders and lists an employee', async () => {
     await createEmployee({ employeeCode: 'S2', name: 'Jane Doe', joiningDate: '2026-01-01', monthlySalaryPaise: 10000 });
     renderAt('/employees', <EmployeesPage />);
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
-    expect(screen.getByText('Present Today')).toBeInTheDocument();
-    expect(screen.getByText('Absent Today')).toBeInTheDocument();
   });
 
   it('Employee detail page renders for an existing employee', async () => {
@@ -68,10 +66,13 @@ describe('page smoke tests (render without crashing)', () => {
     await waitFor(() => expect(screen.getByText('Detail Person')).toBeInTheDocument());
   });
 
-  it('Attendance page renders', async () => {
+  it('Attendance page renders with Present/Absent counts first', async () => {
     await createEmployee({ employeeCode: 'S4', name: 'Attend Person', joiningDate: '2026-01-01', monthlySalaryPaise: 10000 });
     renderAt('/attendance', <AttendancePage />);
     await waitFor(() => expect(screen.getByText('Attend Person')).toBeInTheDocument());
+    // "Present"/"Absent" also appear as per-row status buttons, so assert the summary card labels specifically.
+    expect(screen.getAllByText('Present').some((el) => el.tagName === 'P')).toBe(true);
+    expect(screen.getAllByText('Absent').some((el) => el.tagName === 'P')).toBe(true);
   });
 
   it('Advances page renders', async () => {
