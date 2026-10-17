@@ -1,4 +1,4 @@
-import { createHashRouter } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { Layout } from './Layout';
 import { EmployeesPage } from '../features/employees/EmployeesPage';
 import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
@@ -8,10 +8,9 @@ import { SalaryPage } from '../features/salary/SalaryPage';
 import { BackupPage } from '../features/backup/BackupPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 
-// Hash routing (URLs like #/attendance) because GitHub Pages is a static
-// host with no server-side rewrites — a direct link or refresh on a
-// browser-history path would 404 without it.
-export const router = createHashRouter([
+// Firebase Hosting rewrites every path to index.html (see firebase.json),
+// so normal browser routing works fine — no # needed in the URLs.
+export const router = createBrowserRouter([
   {
     path: '/',
     element: <Layout />,
