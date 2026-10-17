@@ -14,12 +14,6 @@ export interface SalaryCalculationInput {
   alreadyPaidPaise: number;
   /** Outstanding advance balance eligible for recovery this period, in paise. */
   outstandingAdvanceBeforePaise: number;
-  /**
-   * How much of the outstanding advance to deduct this period, in paise.
-   * Omit to automatically recover the maximum possible (the old default
-   * behavior). When given, it caps recovery even if more could be recovered.
-   */
-  advanceDeductionRequestedPaise?: number;
 }
 
 /**
@@ -42,9 +36,7 @@ export function calculateSalary(input: SalaryCalculationInput): SalaryCalculatio
   );
 
   const outstanding = Math.max(0, input.outstandingAdvanceBeforePaise);
-  const requestedCap =
-    input.advanceDeductionRequestedPaise === undefined ? Infinity : Math.max(0, input.advanceDeductionRequestedPaise);
-  const advanceRecoveredPaise = Math.min(outstanding, availableForRecoveryPaise, requestedCap);
+  const advanceRecoveredPaise = Math.min(outstanding, availableForRecoveryPaise);
 
   const finalPayablePaise = availableForRecoveryPaise - advanceRecoveredPaise;
   const advanceCarriedForwardPaise = outstanding - advanceRecoveredPaise;

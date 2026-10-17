@@ -87,26 +87,4 @@ describe('calculateSalary', () => {
     expect(result.dailyRatePaise).toBeCloseTo(2_600_00 / 3, 5);
   });
 
-  it('recovers the maximum possible when no deduction amount is requested', () => {
-    const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: 5_000_00 });
-    expect(result.advanceRecoveredPaise).toBe(5_000_00);
-  });
-
-  it('caps recovery to a manually requested amount even when more is available', () => {
-    const result = calculateSalary({ ...base, outstandingAdvanceBeforePaise: 5_000_00, advanceDeductionRequestedPaise: 1_000_00 });
-    expect(result.advanceRecoveredPaise).toBe(1_000_00);
-    expect(result.advanceCarriedForwardPaise).toBe(4_000_00);
-  });
-
-  it('never lets a requested deduction exceed what is actually available', () => {
-    const result = calculateSalary({
-      ...base,
-      presentDays: 0,
-      unpaidAbsentDays: 40, // zeroes out earned salary
-      outstandingAdvanceBeforePaise: 5_000_00,
-      advanceDeductionRequestedPaise: 5_000_00,
-    });
-    expect(result.advanceRecoveredPaise).toBe(0);
-    expect(result.finalPayablePaise).toBe(0);
-  });
 });

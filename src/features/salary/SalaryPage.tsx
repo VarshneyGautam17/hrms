@@ -55,7 +55,6 @@ export function SalaryPage() {
 
 function SalarySlipView({ employeeId, period }: { employeeId: string; period: string }) {
   const [otherDeduction, setOtherDeduction] = useState('0');
-  const [advanceDeduction, setAdvanceDeduction] = useState('');
   const [slip, setSlip] = useState<SalarySlip | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -63,8 +62,7 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
     setLoading(true);
     try {
       const otherDeductionPaise = parseRupeeInputToPaise(otherDeduction);
-      const advanceDeductionRequestedPaise = advanceDeduction.trim() === '' ? undefined : parseRupeeInputToPaise(advanceDeduction);
-      const result = await computeSalarySlip(employeeId, period, otherDeductionPaise, advanceDeductionRequestedPaise);
+      const result = await computeSalarySlip(employeeId, period, otherDeductionPaise);
       setSlip(result);
     } finally {
       setLoading(false);
@@ -73,13 +71,12 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
 
   useEffect(() => {
     setOtherDeduction('0');
-    setAdvanceDeduction('');
   }, [employeeId, period]);
 
   useEffect(() => {
     loadSlip();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employeeId, period, otherDeduction, advanceDeduction]);
+  }, [employeeId, period, otherDeduction]);
 
   if (!slip) return <p className="text-sm text-slate-500 no-print">Loading…</p>;
 
@@ -97,16 +94,6 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
           onChange={(e) => setOtherDeduction(e.target.value)}
           className="w-40"
           hint="Manual, authorized deduction for this period"
-        />
-        <TextField
-          label="Advance Deduction This Month (₹)"
-          type="number"
-          min="0"
-          step="0.01"
-          value={advanceDeduction}
-          onChange={(e) => setAdvanceDeduction(e.target.value)}
-          className="w-56"
-          hint={`Outstanding: ${formatPaiseAsINR(s.outstandingAdvanceBeforePaise)}. Leave blank to recover the maximum possible.`}
         />
       </div>
 
@@ -137,7 +124,7 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
             <Row label="Earned Salary" value={formatPaiseAsINR(s.earnedSalaryPaise)} strong />
             <Row label="Already Paid" value={`− ${formatPaiseAsINR(s.alreadyPaidPaise)}`} />
             <Row label="Outstanding Advance" value={formatPaiseAsINR(s.outstandingAdvanceBeforePaise)} />
-            <Row label="Advance Deducted Now" value={`− ${formatPaiseAsINR(s.advanceRecoveredPaise)}`} />
+            <Row label="Advance Recovered" value={`− ${formatPaiseAsINR(s.advanceRecoveredPaise)}`} />
             <Row label="Advance Carried Forward" value={formatPaiseAsINR(s.advanceCarriedForwardPaise)} />
           </dl>
         </div>

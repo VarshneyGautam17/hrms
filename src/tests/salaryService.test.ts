@@ -88,24 +88,6 @@ describe('salaryService', () => {
     expect(slip.snapshot.advanceCarriedForwardPaise).toBe(5_000_00);
   });
 
-  it('caps advance recovery to a manually requested amount instead of recovering the maximum', async () => {
-    const employee = await createEmployee({
-      employeeCode: 'E5',
-      name: 'Deepak',
-      joiningDate: '2026-01-01',
-      monthlySalaryPaise: 26_000_00,
-    });
-    await markPresentForAllDays(employee.id, PERIOD);
-    await addAdvanceTransaction({ employeeId: employee.id, date: '2026-02-01', type: 'ADVANCE', amountPaise: 10_000_00 });
-
-    const autoSlip = await computeSalarySlip(employee.id, PERIOD);
-    expect(autoSlip.snapshot.advanceRecoveredPaise).toBe(10_000_00);
-
-    const cappedSlip = await computeSalarySlip(employee.id, PERIOD, 0, 2_000_00);
-    expect(cappedSlip.snapshot.advanceRecoveredPaise).toBe(2_000_00);
-    expect(cappedSlip.snapshot.advanceCarriedForwardPaise).toBe(8_000_00);
-  });
-
   it('excludes days outside the employment window for a mid-month joiner', async () => {
     const employee = await createEmployee({
       employeeCode: 'E4',

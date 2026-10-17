@@ -21,12 +21,7 @@ export interface SalarySlip {
  * step and nothing is persisted. Printing a slip just prints this live
  * calculation.
  */
-export async function computeSalarySlip(
-  employeeId: string,
-  period: string,
-  otherDeductionPaise = 0,
-  advanceDeductionRequestedPaise?: number,
-): Promise<SalarySlip> {
+export async function computeSalarySlip(employeeId: string, period: string, otherDeductionPaise = 0): Promise<SalarySlip> {
   const employee = await getEmployee(employeeId);
   if (!employee) throw new Error('Employee not found.');
 
@@ -57,7 +52,6 @@ export async function computeSalarySlip(
     otherDeductionPaise,
     alreadyPaidPaise: sumPayments(payments),
     outstandingAdvanceBeforePaise: outstandingBeforePaise,
-    advanceDeductionRequestedPaise,
   });
 
   return { employee, period, days, snapshot };
