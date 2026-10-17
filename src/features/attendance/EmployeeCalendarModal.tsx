@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { listAttendanceForEmployeeInRange } from '../../db/repositories/attendance';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
+import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
 import { currentPeriod, daysInPeriod, formatDisplayPeriod, periodToDate } from '../../utils/dates';
 import { format, addMonths, subMonths } from 'date-fns';
 import type { Employee } from '../../types';
@@ -14,6 +15,7 @@ interface Props {
 
 export function EmployeeCalendarModal({ employee, onClose }: Props) {
   const [period, setPeriod] = useState(currentPeriod());
+  const [editingDate, setEditingDate] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,7 +93,7 @@ export function EmployeeCalendarModal({ employee, onClose }: Props) {
           {!classification ? (
             <p className="text-sm text-slate-500">Loading…</p>
           ) : (
-            <MonthGrid period={period} days={classification} showHeader={false} />
+            <MonthGrid period={period} days={classification} showHeader={false} onDayClick={setEditingDate} />
           )}
         </div>
 
@@ -101,6 +103,15 @@ export function EmployeeCalendarModal({ employee, onClose }: Props) {
           </button>
         )}
       </div>
+
+      {editingDate && (
+        <DayAttendancePopup
+          employee={employee}
+          date={editingDate}
+          currentStatus={attendance?.find((a) => a.date === editingDate)?.status ?? null}
+          onClose={() => setEditingDate(null)}
+        />
+      )}
     </div>
   );
 }

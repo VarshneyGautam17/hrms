@@ -1,12 +1,12 @@
 import type { AttendanceRecord, AttendanceStatus, Employee } from '../types';
-import { daysInPeriod, weekdayOf, isWeeklyOffDay } from '../utils/dates';
+import { daysInPeriod, weekdayOf, isWeeklyOffDay, todayISO } from '../utils/dates';
 
-export type DaySource = 'ATTENDANCE' | 'WEEKLY_OFF' | 'NOT_MARKED' | 'OUTSIDE_EMPLOYMENT';
+export type DaySource = 'ATTENDANCE' | 'WEEKLY_OFF' | 'NOT_MARKED' | 'OUTSIDE_EMPLOYMENT' | 'FUTURE';
 
 export interface DayClassification {
   date: string;
   source: DaySource;
-  status: AttendanceStatus | 'OUTSIDE_EMPLOYMENT' | 'NOT_MARKED';
+  status: AttendanceStatus | 'OUTSIDE_EMPLOYMENT' | 'NOT_MARKED' | 'FUTURE';
   paid: boolean;
 }
 
@@ -37,10 +37,12 @@ function emptyCounts(): AttendanceSummaryCounts {
 /**
  * Classifies every calendar day of a period for one employee, combining
  * explicit attendance marks with the fixed weekly off (every Monday).
- * Priority order: explicit attendance mark > weekly off > not marked. A day
- * nobody marked is never labeled "Absent" — it gets its own "Not Marked"
- * status — but it is still unpaid in the salary math, same as an explicit
- * absence, until someone marks it Present or Half Day. Days before the
+ * Priority order: explicit attendance mark > weekly off > future > not
+ * marked. A day nobody marked is never labeled "Absent" — it gets its own
+ * "Not Marked" status — but it is still unpaid in the salary math, same as
+ * an explicit absence, until someone marks it Present or Half Day. Days
+ * after today are "Future": never counted toward pay and never defaulted to
+ * Absent/Not Marked, since they haven't happened yet. Days before the
  * employee's joining date are excluded so a mid-month joiner is not
  * penalized for days before they started.
  */
@@ -50,6 +52,7 @@ export function summarizeAttendanceForEmployee(
   attendanceRecords: AttendanceRecord[],
 ): AttendanceSummaryResult {
   const attendanceByDate = new Map(attendanceRecords.map((a) => [a.date, a]));
+  const today = todayISO();
 
   const days: DayClassification[] = [];
   const counts = emptyCounts();
@@ -70,6 +73,11 @@ export function summarizeAttendanceForEmployee(
     if (isWeeklyOffDay(weekdayOf(date))) {
       days.push({ date, source: 'WEEKLY_OFF', status: 'WEEKLY_OFF', paid: true });
       counts.paidWeeklyOffDays += 1;
+      continue;
+    }
+
+    if (date > today) {
+      days.push({ date, source: 'FUTURE', status: 'FUTURE', paid: false });
       continue;
     }
 

@@ -11,6 +11,7 @@ import { AdvancesPage } from '../features/advances/AdvancesPage';
 import { SalaryPage } from '../features/salary/SalaryPage';
 import { BackupPage } from '../features/backup/BackupPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
+import { todayISO } from '../utils/dates';
 
 async function clearAll() {
   await db.transaction(
@@ -86,6 +87,30 @@ describe('page smoke tests (render without crashing)', () => {
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Previous month' })).toBeInTheDocument();
+  });
+
+  it('clicking a past/today day in the calendar opens a mark-attendance popup; future days are disabled', async () => {
+    await createEmployee({ employeeCode: 'S7', name: 'Click Person', joiningDate: '2026-01-01', monthlySalaryPaise: 10000 });
+    renderAt('/attendance', <AttendancePage />);
+    await waitFor(() => expect(screen.getByText('Click Person')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'View attendance calendar for Click Person' }));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+    const today = todayISO();
+    const todayButton = await screen.findByTitle(new RegExp(`^${today}:`));
+    expect(todayButton).not.toBeDisabled();
+
+    await user.click(todayButton);
+    await waitFor(() =>
+      expect(screen.getByRole('group', { name: `Attendance status for Click Person on ${today}` })).toBeInTheDocument(),
+    );
+
+    const futureButtons = screen.getAllByTitle(/: Future$/);
+    if (futureButtons.length > 0) {
+      expect(futureButtons[0]).toBeDisabled();
+    }
   });
 
   it('Advances page renders', async () => {

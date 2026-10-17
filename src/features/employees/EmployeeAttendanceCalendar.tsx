@@ -1,14 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { listAttendanceForEmployeeInRange } from '../../db/repositories/attendance';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
+import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
 import { currentPeriod, previousPeriods, daysInPeriod } from '../../utils/dates';
 import type { Employee } from '../../types';
 
 /** Shows the last 3 months (current + 2 previous) as day-by-day attendance calendars. */
 export function EmployeeAttendanceCalendar({ employee }: { employee: Employee }) {
   const periods = useMemo(() => previousPeriods(3, currentPeriod()), []);
+  const [editingDate, setEditingDate] = useState<string | null>(null);
 
   const firstDate = daysInPeriod(periods[periods.length - 1])[0];
   const lastDate = daysInPeriod(periods[0]).slice(-1)[0];
@@ -36,9 +38,18 @@ export function EmployeeAttendanceCalendar({ employee }: { employee: Employee })
           .reverse()
           .map((period) => {
             const { days } = summarizeAttendanceForEmployee(employee, period, attendance);
-            return <MonthGrid key={period} period={period} days={days} />;
+            return <MonthGrid key={period} period={period} days={days} onDayClick={setEditingDate} />;
           })}
       </div>
+
+      {editingDate && (
+        <DayAttendancePopup
+          employee={employee}
+          date={editingDate}
+          currentStatus={attendance.find((a) => a.date === editingDate)?.status ?? null}
+          onClose={() => setEditingDate(null)}
+        />
+      )}
     </div>
   );
 }
