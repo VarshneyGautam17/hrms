@@ -1,0 +1,134 @@
+import { useMemo, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/database';
+import { getSettings } from '../../db/repositories/settings';
+import { setAttendanceStatus } from '../../db/repositories/attendance';
+import { getHolidayByDate } from '../../db/repositories/holidays';
+import { AttendanceStatusButtons } from './AttendanceStatusButtons';
+import { Badge } from '../../components/ui/Badge';
+import { TextField } from '../../components/ui/Field';
+import { todayISO, weekdayOf } from '../../utils/dates';
+import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
+
+export function AttendancePage() {
+  const [date, setDate] = useState(todayISO());
+  const settings = useLiveQuery(() => getSettings(), []);
+  const employees = useLiveQuery(() => db.employees.where('status').equals('ACTIVE').sortBy('name'), []);
+  const dayAttendance = useLiveQuery(() => db.attendance.where('date').equals(date).toArray(), [date]);
+  const holiday = useLiveQuery(() => getHolidayByDate(date), [date]);
+
+  const attendanceByEmployee = useMemo(() => {
+    const map = new Map<string, AttendanceRecord>();
+    dayAttendance?.forEach((a) => map.set(a.employeeId, a));
+    return map;
+  }, [dayAttendance]);
+
+  if (!settings || !employees) return <p className="text-sm text-slate-500">Loading…</p>;
+
+  const isWeeklyOff = settings.weeklyOffDays.includes(weekdayOf(date));
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Attendance</h1>
+          <p className="text-sm text-slate-500">Mark Present, Half Day or Absent for each employee on the selected date.</p>
+        </div>
+        <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+      </div>
+
+      {holiday && (
+        <Badge tone="warning">
+          {holiday.name} ({holiday.paid ? 'Paid Holiday' : 'Unpaid Holiday'})
+        </Badge>
+      )}
+      {!holiday && isWeeklyOff && <Badge>Weekly Off</Badge>}
+
+      {employees.length === 0 ? (
+        <p className="text-sm text-slate-500">No active employees yet. Add employees first.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium text-slate-600">Employee</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-600">Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {employees.map((emp) => (
+                <AttendanceRow
+                  key={emp.id}
+                  employeeId={emp.id}
+                  employeeName={emp.name}
+                  date={date}
+                  record={attendanceByEmployee.get(emp.id)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttendanceRow({
+  employeeId,
+  employeeName,
+  date,
+  record,
+}: {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  record: AttendanceRecord | undefined;
+}) {
+  const [notes, setNotes] = useState(record?.notes ?? '');
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  const recordKey = `${record?.id ?? 'new'}-${date}`;
+  const [lastKey, setLastKey] = useState(recordKey);
+  if (lastKey !== recordKey) {
+    setLastKey(recordKey);
+    setNotes(record?.notes ?? '');
+  }
+
+  async function handleStatus(status: MarkedAttendanceStatus) {
+    await setAttendanceStatus(employeeId, date, status, notes || null);
+    setSavedAt(Date.now());
+  }
+
+  async function handleNotesBlur() {
+    if (!record) return; // nothing to attach notes to until a status is set
+    await setAttendanceStatus(employeeId, date, record.status, notes || null);
+    setSavedAt(Date.now());
+  }
+
+  return (
+    <tr>
+      <td className="px-3 py-2 font-medium text-slate-900">{employeeName}</td>
+      <td className="px-3 py-2">
+        <AttendanceStatusButtons
+          value={record?.status ?? null}
+          onChange={handleStatus}
+          size="sm"
+          aria-label={`Attendance status for ${employeeName}`}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="text"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={handleNotesBlur}
+          placeholder="Optional note"
+          className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm"
+          aria-label={`Notes for ${employeeName}`}
+        />
+        {savedAt && <span className="ml-1 text-xs text-green-600">Saved</span>}
+      </td>
+    </tr>
+  );
+}
