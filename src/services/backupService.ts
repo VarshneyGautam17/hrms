@@ -2,16 +2,7 @@ import { getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { userCollection, userDoc } from '../firebase/paths';
 import { firestore } from '../firebase/config';
 import { createDefaultSettings } from '../db/repositories/settings';
-import type {
-  BackupFile,
-  Employee,
-  AttendanceRecord,
-  AdvanceTransaction,
-  SalaryPayment,
-  SalaryFinalization,
-  AppSettings,
-} from '../types';
-import { DB_SCHEMA_VERSION } from '../types';
+import type { Employee, AttendanceRecord, AdvanceTransaction, SalaryPayment, SalaryFinalization } from '../types';
 
 const COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments', 'salaryFinalizations'] as const;
 
@@ -20,123 +11,123 @@ async function fetchAll<T>(name: string): Promise<T[]> {
   return snap.docs.map((d) => d.data() as T);
 }
 
-export async function exportBackup(): Promise<BackupFile> {
-  const [employees, attendance, advanceTransactions, salaryPayments, salaryFinalizations, settingsRow] = await Promise.all([
-    fetchAll<Employee>('employees'),
-    fetchAll<AttendanceRecord>('attendance'),
-    fetchAll<AdvanceTransaction>('advanceTransactions'),
-    fetchAll<SalaryPayment>('salaryPayments'),
-    fetchAll<SalaryFinalization>('salaryFinalizations'),
-    fetchAll<AppSettings>('settings'),
-  ]);
-
-  return {
-    schemaVersion: DB_SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    appName: 'hrms-attendance-salary',
-    data: {
-      employees,
-      attendance,
-      advanceTransactions,
-      salaryPayments,
-      salaryFinalizations,
-      settings: settingsRow,
-    },
-  };
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
-export function downloadBackupFile(backup: BackupFile): void {
-  const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+function toCsvSection(title: string, columns: string[], rows: object[]): string {
+  const lines = [
+    title,
+    columns.join(','),
+    ...rows.map((row) => columns.map((c) => csvEscape((row as Record<string, unknown>)[c])).join(',')),
+  ];
+  return lines.join('\n');
+}
+
+function flattenFinalization(f: SalaryFinalization): Record<string, unknown> {
+  const flat: Record<string, unknown> = {
+    id: f.id,
+    employeeId: f.employeeId,
+    period: f.period,
+    finalizedAt: f.finalizedAt,
+    advanceTransactionId: f.advanceTransactionId,
+    paymentId: f.paymentId,
+  };
+  for (const [k, v] of Object.entries(f.snapshot)) {
+    flat[`snapshot.${k}`] = v;
+  }
+  return flat;
+}
+
+function downloadCsv(csv: string): void {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const stamp = backup.exportedAt.replace(/[:.]/g, '-');
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   a.href = url;
-  a.download = `hrms-backup-${stamp}.json`;
+  a.download = `hrms-export-${stamp}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
 }
 
-export interface ValidationIssue {
-  message: string;
-}
+/**
+ * Fetches every employee, attendance, advance, payment and finalization
+ * record and downloads them as a single CSV file (one section per entity).
+ * Returns the record counts for a summary toast.
+ */
+export async function exportAllDataAsCsv(): Promise<Record<string, number>> {
+  const [employees, attendance, advanceTransactions, salaryPayments, salaryFinalizations] = await Promise.all([
+    fetchAll<Employee>('employees'),
+    fetchAll<AttendanceRecord>('attendance'),
+    fetchAll<AdvanceTransaction>('advanceTransactions'),
+    fetchAll<SalaryPayment>('salaryPayments'),
+    fetchAll<SalaryFinalization>('salaryFinalizations'),
+  ]);
 
-export interface ValidationResult {
-  valid: boolean;
-  issues: ValidationIssue[];
-  recordCounts: Record<string, number>;
-}
+  const csv = [
+    toCsvSection(
+      'EMPLOYEES',
+      ['id', 'employeeCode', 'name', 'joiningDate', 'phone', 'department', 'monthlySalaryPaise', 'createdAt', 'updatedAt'],
+      employees,
+    ),
+    toCsvSection('ATTENDANCE', ['id', 'employeeId', 'date', 'status', 'notes', 'updatedAt'], attendance),
+    toCsvSection(
+      'ADVANCE TRANSACTIONS',
+      ['id', 'employeeId', 'date', 'type', 'amountPaise', 'notes', 'createdAt'],
+      advanceTransactions,
+    ),
+    toCsvSection(
+      'SALARY PAYMENTS',
+      ['id', 'employeeId', 'date', 'amountPaise', 'method', 'notes', 'period', 'createdAt'],
+      salaryPayments,
+    ),
+    toCsvSection(
+      'SALARY FINALIZATIONS',
+      [
+        'id',
+        'employeeId',
+        'period',
+        'finalizedAt',
+        'advanceTransactionId',
+        'paymentId',
+        'snapshot.monthlySalaryPaise',
+        'snapshot.divisor',
+        'snapshot.totalDaysInMonth',
+        'snapshot.presentDays',
+        'snapshot.halfDays',
+        'snapshot.unpaidAbsentDays',
+        'snapshot.notMarkedDays',
+        'snapshot.paidWeeklyOffDays',
+        'snapshot.unpaidDayEquivalents',
+        'snapshot.dailyRatePaise',
+        'snapshot.attendanceDeductionPaise',
+        'snapshot.otherDeductionPaise',
+        'snapshot.earnedSalaryPaise',
+        'snapshot.alreadyPaidPaise',
+        'snapshot.availableForRecoveryPaise',
+        'snapshot.outstandingAdvanceBeforePaise',
+        'snapshot.maxRecoverablePaise',
+        'snapshot.advanceRecoveredPaise',
+        'snapshot.advanceCarriedForwardPaise',
+        'snapshot.finalPayablePaise',
+      ],
+      salaryFinalizations.map(flattenFinalization),
+    ),
+  ].join('\n\n');
 
-const REQUIRED_COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments', 'settings'] as const;
+  downloadCsv(csv);
 
-export function validateBackup(raw: unknown): ValidationResult {
-  const issues: ValidationIssue[] = [];
-  const recordCounts: Record<string, number> = {};
-
-  if (typeof raw !== 'object' || raw === null) {
-    return { valid: false, issues: [{ message: 'Backup file is not valid JSON object.' }], recordCounts };
-  }
-
-  const backup = raw as Partial<BackupFile>;
-
-  if (typeof backup.schemaVersion !== 'number') {
-    issues.push({ message: 'Missing or invalid schemaVersion.' });
-  } else if (backup.schemaVersion > DB_SCHEMA_VERSION) {
-    issues.push({
-      message: `Backup schema version ${backup.schemaVersion} is newer than this app supports (${DB_SCHEMA_VERSION}).`,
-    });
-  }
-
-  if (backup.appName !== 'hrms-attendance-salary') {
-    issues.push({ message: 'This file does not look like an HRMS backup (unexpected appName).' });
-  }
-
-  if (!backup.data || typeof backup.data !== 'object') {
-    issues.push({ message: 'Backup is missing its data section.' });
-    return { valid: false, issues, recordCounts };
-  }
-
-  for (const key of REQUIRED_COLLECTIONS) {
-    const value = (backup.data as Record<string, unknown>)[key];
-    if (!Array.isArray(value)) {
-      issues.push({ message: `Missing or invalid collection: ${key}.` });
-      continue;
-    }
-    recordCounts[key] = value.length;
-  }
-
-  // Duplicate ID detection within each collection that has an `id` field.
-  for (const key of REQUIRED_COLLECTIONS) {
-    const value = (backup.data as Record<string, unknown>)[key];
-    if (!Array.isArray(value)) continue;
-    const ids = new Set<string>();
-    for (const row of value) {
-      const id = (row as { id?: unknown })?.id;
-      if (typeof id !== 'string' || id.length === 0) {
-        issues.push({ message: `A record in ${key} is missing a valid id.` });
-        continue;
-      }
-      if (ids.has(id)) {
-        issues.push({ message: `Duplicate id "${id}" found in ${key}.` });
-      }
-      ids.add(id);
-    }
-  }
-
-  return { valid: issues.length === 0, issues, recordCounts };
-}
-
-/** Firestore batches top out at 500 writes; chunk anything larger. */
-async function batchWriteAll(docs: { path: string; id: string; data: object }[]): Promise<void> {
-  for (let i = 0; i < docs.length; i += 450) {
-    const batch = writeBatch(firestore);
-    for (const d of docs.slice(i, i + 450)) {
-      batch.set(userDoc(d.path, d.id), d.data);
-    }
-    await batch.commit();
-  }
+  return {
+    employees: employees.length,
+    attendance: attendance.length,
+    advanceTransactions: advanceTransactions.length,
+    salaryPayments: salaryPayments.length,
+    salaryFinalizations: salaryFinalizations.length,
+  };
 }
 
 async function deleteAllInCollection(name: string): Promise<void> {
@@ -152,35 +143,9 @@ async function deleteAllInCollection(name: string): Promise<void> {
 }
 
 /**
- * Replaces all current data with the contents of a validated backup.
- * Clears every collection first, then writes the backup's rows back in.
- */
-export async function restoreBackup(backup: BackupFile): Promise<void> {
-  for (const name of REQUIRED_COLLECTIONS) {
-    await deleteAllInCollection(name);
-  }
-  await deleteAllInCollection('salaryFinalizations');
-
-  await batchWriteAll(backup.data.employees.map((e) => ({ path: 'employees', id: e.id, data: e })));
-  await batchWriteAll(backup.data.attendance.map((a) => ({ path: 'attendance', id: `${a.employeeId}_${a.date}`, data: a })));
-  await batchWriteAll(backup.data.advanceTransactions.map((a) => ({ path: 'advanceTransactions', id: a.id, data: a })));
-  await batchWriteAll(backup.data.salaryPayments.map((p) => ({ path: 'salaryPayments', id: p.id, data: p })));
-  // Older backups (schema < 8) predate finalization and simply won't have any.
-  await batchWriteAll((backup.data.salaryFinalizations ?? []).map((f) => ({ path: 'salaryFinalizations', id: f.id, data: f })));
-  for (const s of backup.data.settings) {
-    await setDoc(userDoc('settings', s.id), s);
-  }
-}
-
-export async function readBackupFile(file: File): Promise<unknown> {
-  const text = await file.text();
-  return JSON.parse(text);
-}
-
-/**
  * Permanently wipes every employee, attendance, advance, payment and
  * settings record for the signed-in user, then re-seeds the default
- * settings doc. There is no undo — export a backup first if the data might
+ * settings doc. There is no undo — export a CSV first if the data might
  * still be needed.
  */
 export async function resetAllData(): Promise<void> {

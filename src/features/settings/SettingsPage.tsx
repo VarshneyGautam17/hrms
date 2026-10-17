@@ -1,14 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { updateSettings, settingsDocRef } from '../../db/repositories/settings';
 import { allAttendanceQuery } from '../../db/repositories/attendance';
 import { employeesQuery } from '../../db/repositories/employees';
 import { useCollection, useDocument } from '../../firebase/hooks';
-import { signOutUser } from '../../firebase/auth';
+import { signOutUser, verifyCurrentPassword } from '../../firebase/auth';
+import { exportAllDataAsCsv, resetAllData } from '../../services/backupService';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PageLoader } from '@/components/spinner';
+import { PageLoader, Spinner } from '@/components/spinner';
 import { WEEKDAY_LABELS } from '../../utils/dates';
 import type { AppSettings, AttendanceRecord, Employee } from '../../types';
 
@@ -17,7 +29,7 @@ export function SettingsPage() {
   const [form, setForm] = useState<AppSettings | null>(null);
 
   useEffect(() => {
-    if (existing && !form) setForm({ ...existing, adminEmail: existing.adminEmail ?? null });
+    if (existing && !form) setForm(existing);
   }, [existing, form]);
 
   if (!form) return <PageLoader />;
@@ -63,23 +75,6 @@ export function SettingsPage() {
       </div>
 
       <div className="rounded-xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Admin Email</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Finalized salary slips are emailed here. Leave blank to skip emailing.
-        </p>
-        <div className="mt-3 flex flex-col gap-1.5 sm:max-w-sm">
-          <Label htmlFor="admin-email">Email Address</Label>
-          <Input
-            id="admin-email"
-            type="email"
-            placeholder="admin@example.com"
-            value={form.adminEmail ?? ''}
-            onChange={(e) => setForm({ ...form, adminEmail: e.target.value.trim() || null })}
-          />
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-card p-4">
         <h2 className="text-sm font-semibold">Salary Divisor</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Always the actual number of days in that calendar month (28–31) — not configurable.
@@ -96,6 +91,7 @@ export function SettingsPage() {
       </div>
 
       <DataSummary />
+      <DataManagement />
     </div>
   );
 }
@@ -109,8 +105,155 @@ function DataSummary() {
       <p className="font-medium">Your data is stored in the cloud and synced to every device you sign into.</p>
       <p className="mt-1">
         All {employees?.length ?? 0} employees and {attendance?.length ?? 0} attendance records are stored in your
-        Firestore database. Use <strong>Backup &amp; Restore</strong> regularly to export a copy as well.
+        Firestore database. Use <strong>Export to CSV</strong> below regularly to keep a copy as well.
       </p>
     </div>
+  );
+}
+
+function DataManagement() {
+  const [exporting, setExporting] = useState(false);
+
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const counts = await exportAllDataAsCsv();
+      toast.success('Exported to CSV', {
+        description: `${counts.employees} employees, ${counts.attendance} attendance records.`,
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function openPasswordStep() {
+    setResetConfirmOpen(false);
+    setPassword('');
+    setPasswordError(null);
+    setPasswordDialogOpen(true);
+  }
+
+  async function handlePasswordSubmit(e: FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+    setVerifyingPassword(true);
+    try {
+      await verifyCurrentPassword(password);
+    } catch {
+      setVerifyingPassword(false);
+      setPasswordError('Incorrect password. Try again.');
+      return;
+    }
+    setPasswordDialogOpen(false);
+    setPassword('');
+    setVerifyingPassword(false);
+
+    setResetting(true);
+    try {
+      await resetAllData();
+      toast.success('All data has been reset', { description: 'The app is now empty, as if freshly installed.' });
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="rounded-xl border bg-card p-4">
+        <h2 className="text-sm font-semibold">Export to CSV</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Downloads a single CSV file containing all employees, attendance, advances, payments and finalized
+          salaries.
+        </p>
+        <Button className="mt-3 w-full sm:w-auto" variant="outline" onClick={handleExportCsv} disabled={exporting}>
+          {exporting && <Spinner />}
+          {exporting ? 'Exporting…' : 'Export to CSV'}
+        </Button>
+      </div>
+
+      <div className="rounded-xl border border-red-200 bg-card p-4">
+        <h2 className="text-sm font-semibold text-destructive">Reset All Data</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Permanently deletes every employee, attendance, advance, payment and setting from this account. This
+          cannot be undone — export a CSV first if you might need this data again.
+        </p>
+        <Button className="mt-3 w-full sm:w-auto" variant="destructive" onClick={() => setResetConfirmOpen(true)} disabled={resetting}>
+          {resetting && <Spinner />}
+          {resetting ? 'Resetting…' : 'Reset All Data'}
+        </Button>
+      </div>
+
+      <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset all data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes every employee, attendance, advance, payment and setting from this account.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={openPasswordStep}>
+              Reset All Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={passwordDialogOpen}
+        onOpenChange={(next) => {
+          setPasswordDialogOpen(next);
+          if (!next) {
+            setPassword('');
+            setPasswordError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm your password</DialogTitle>
+            <DialogDescription>For your safety, re-enter your account password to permanently reset all data.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reset-password">Password</Label>
+              <Input
+                id="reset-password"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              {passwordError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {passwordError}
+                </p>
+              )}
+            </div>
+            <DialogFooter className="-mx-0 -mb-0 border-t-0 bg-transparent p-0 pt-2">
+              <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(false)} disabled={verifyingPassword}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={verifyingPassword || !password}>
+                {verifyingPassword && <Spinner />}
+                Confirm &amp; Reset
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

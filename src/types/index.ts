@@ -62,8 +62,6 @@ export interface SalaryFinalization {
   advanceTransactionId: string | null;
   /** The salary-payment record created by this finalization. */
   paymentId: string;
-  /** Where the slip was emailed, if an admin email was configured at the time. */
-  emailedTo: string | null;
 }
 
 export interface SalaryCalculationSnapshot {
@@ -94,24 +92,6 @@ export interface AppSettings {
   id: string; // singleton 'default'
   /** Which weekday is the company-wide paid weekly off, for all employees (0 = Sunday ... 6 = Saturday). */
   weeklyOffDay: number;
-  /** Where finalized salary slips are emailed. Null until configured. */
-  adminEmail: string | null;
   updatedAt: string;
 }
 
-export const DB_SCHEMA_VERSION = 8;
-
-export interface BackupFile {
-  schemaVersion: number;
-  exportedAt: string;
-  appName: 'hrms-attendance-salary';
-  data: {
-    employees: Employee[];
-    attendance: AttendanceRecord[];
-    advanceTransactions: AdvanceTransaction[];
-    salaryPayments: SalaryPayment[];
-    settings: AppSettings[];
-    /** Optional for backward compatibility: older backups (schema < 8) were exported before finalization existed. */
-    salaryFinalizations?: SalaryFinalization[];
-  };
-}

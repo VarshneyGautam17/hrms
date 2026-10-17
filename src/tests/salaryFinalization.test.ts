@@ -30,7 +30,7 @@ describe('finalizeSalary', () => {
     const slip = await computeSalarySlip(employee.id, PERIOD);
     expect(slip.snapshot.advanceRecoveredPaise).toBe(5_000_00);
 
-    await finalizeSalary(employee.id, slip, null);
+    await finalizeSalary(employee.id, slip);
 
     const advances = await listAdvancesForEmployee(employee.id);
     expect(computeOutstandingBalance(advances)).toBe(0); // actually recovered now, not just displayed
@@ -46,7 +46,7 @@ describe('finalizeSalary', () => {
     expect(slip.snapshot.advanceRecoveredPaise).toBe(2_000_00);
     expect(slip.snapshot.finalPayablePaise).toBe(26_000_00 - 2_000_00);
 
-    await finalizeSalary(employee.id, slip, null);
+    await finalizeSalary(employee.id, slip);
 
     const advances = await listAdvancesForEmployee(employee.id);
     expect(computeOutstandingBalance(advances)).toBe(8_000_00); // only the chosen 2,000 was recovered, 8,000 remains owed
@@ -59,7 +59,7 @@ describe('finalizeSalary', () => {
     const slip = await computeSalarySlip(employee.id, PERIOD);
     expect(slip.snapshot.advanceRecoveredPaise).toBe(0);
 
-    await finalizeSalary(employee.id, slip, null);
+    await finalizeSalary(employee.id, slip);
 
     expect(await listAdvancesForEmployee(employee.id)).toHaveLength(0);
   });
@@ -72,7 +72,7 @@ describe('finalizeSalary', () => {
     const slip = await computeSalarySlip(employee.id, PERIOD);
     expect(slip.snapshot.finalPayablePaise).toBe(0);
 
-    await expect(finalizeSalary(employee.id, slip, null)).resolves.toBeDefined();
+    await expect(finalizeSalary(employee.id, slip)).resolves.toBeDefined();
   });
 
   it('freezes the slip permanently: later attendance or advance changes never alter a finalized period', async () => {
@@ -81,7 +81,7 @@ describe('finalizeSalary', () => {
     await addAdvanceTransaction({ employeeId: employee.id, date: '2026-02-05', type: 'ADVANCE', amountPaise: 5_000_00 });
 
     const before = await computeSalarySlip(employee.id, PERIOD);
-    await finalizeSalary(employee.id, before, null);
+    await finalizeSalary(employee.id, before);
 
     // Mutate attendance for that same period after finalizing — a real scenario
     // where someone edits a past day by mistake.
@@ -98,11 +98,11 @@ describe('finalizeSalary', () => {
     await markPresentForAllDays(employee.id, PERIOD);
 
     const slip = await computeSalarySlip(employee.id, PERIOD);
-    await finalizeSalary(employee.id, slip, null); // first call succeeds
+    await finalizeSalary(employee.id, slip); // first call succeeds
 
     // Second call reuses the same (now stale) non-finalized slip snapshot — the
     // repository-level duplicate check must still catch it.
-    await expect(finalizeSalary(employee.id, slip, null)).rejects.toThrow(/already finalized/i);
+    await expect(finalizeSalary(employee.id, slip)).rejects.toThrow(/already finalized/i);
 
     const advances = await listAdvancesForEmployee(employee.id);
     expect(advances).toHaveLength(0); // no duplicate repayment was created by the rejected second call
@@ -113,10 +113,10 @@ describe('finalizeSalary', () => {
     await markPresentForAllDays(employee.id, PERIOD);
 
     const slip = await computeSalarySlip(employee.id, PERIOD);
-    await finalizeSalary(employee.id, slip, null);
+    await finalizeSalary(employee.id, slip);
 
     const refetched = await computeSalarySlip(employee.id, PERIOD);
     expect(refetched.finalized).toBe(true);
-    await expect(finalizeSalary(employee.id, refetched, null)).rejects.toThrow(/already finalized/i);
+    await expect(finalizeSalary(employee.id, refetched)).rejects.toThrow(/already finalized/i);
   });
 });

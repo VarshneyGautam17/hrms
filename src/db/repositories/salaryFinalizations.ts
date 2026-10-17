@@ -28,7 +28,6 @@ export interface NewFinalizationInput {
   snapshot: SalaryCalculationSnapshot;
   advanceTransactionId: string | null;
   paymentId: string;
-  emailedTo: string | null;
 }
 
 /**
@@ -49,7 +48,6 @@ export async function createFinalization(input: NewFinalizationInput): Promise<S
     snapshot: input.snapshot,
     advanceTransactionId: input.advanceTransactionId,
     paymentId: input.paymentId,
-    emailedTo: input.emailedTo,
   };
   await setDoc(finalizationDocRef(input.employeeId, input.period), record);
   return record;

@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2 } from 'lucide-react';
 import { employeesQuery } from '../../db/repositories/employees';
-import { settingsDocRef } from '../../db/repositories/settings';
-import { useCollection, useDocument } from '../../firebase/hooks';
+import { useCollection } from '../../firebase/hooks';
 import { computeSalarySlip, finalizeSalary, type SalarySlip } from '../../services/salaryService';
-import { queueSalaryEmail } from '../../services/emailService';
+import { downloadSalarySlipPdf } from '../../services/pdfService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +22,7 @@ import {
 import { PageLoader, Spinner } from '@/components/spinner';
 import { formatPaiseAsINR, parseRupeeInputToPaise, paiseToRupees } from '../../utils/currency';
 import { currentPeriod, previousPeriods, formatDisplayPeriod, todayISO, formatDisplayDate } from '../../utils/dates';
-import type { AppSettings, Employee } from '../../types';
+import type { Employee } from '../../types';
 
 export function SalaryPage() {
   const employees = useCollection<Employee>(employeesQuery(), []);
@@ -88,7 +87,6 @@ export function SalaryPage() {
 }
 
 function SalarySlipView({ employeeId, period }: { employeeId: string; period: string }) {
-  const settings = useDocument<AppSettings>(settingsDocRef(), []);
   const [otherDeduction, setOtherDeduction] = useState('0');
   const [advanceRepayment, setAdvanceRepayment] = useState('0');
   const [advanceRepaymentTouched, setAdvanceRepaymentTouched] = useState(false);
@@ -127,20 +125,10 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
     if (!slip || slip.finalized) return;
     setFinalizing(true);
     try {
-      await finalizeSalary(employeeId, slip, settings?.adminEmail ?? null);
+      await finalizeSalary(employeeId, slip);
       toast.success('Salary finalized', { description: `Final payable: ${formatPaiseAsINR(slip.snapshot.finalPayablePaise)}` });
 
-      if (settings?.adminEmail) {
-        try {
-          await queueSalaryEmail(settings.adminEmail, slip);
-          toast.info('Salary slip queued for email', { description: settings.adminEmail });
-        } catch (err) {
-          toast.error('Finalized, but failed to queue the email', { description: err instanceof Error ? err.message : undefined });
-        }
-      } else {
-        toast.warning('No admin email configured', { description: 'Add one in Settings to email finalized slips automatically.' });
-      }
-
+      downloadSalarySlipPdf({ ...slip, finalized: true, finalizedAt: new Date().toISOString() });
       await loadSlip();
     } catch (err) {
       toast.error('Failed to finalize salary', { description: err instanceof Error ? err.message : undefined });
@@ -247,6 +235,9 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
           {loading && <Spinner />}
           Print Salary Slip
         </Button>
+        <Button variant="outline" onClick={() => downloadSalarySlipPdf(slip)} disabled={loading}>
+          Download PDF
+        </Button>
         {!slip.finalized && (
           <Button onClick={() => setConfirmFinalizeOpen(true)} disabled={finalizing || loading}>
             {finalizing && <Spinner />}
@@ -263,10 +254,8 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
               This locks {formatDisplayPeriod(period)} permanently — it can never be edited or re-finalized.
               {s.advanceRecoveredPaise > 0 &&
                 ` It will record a repayment of ${formatPaiseAsINR(s.advanceRecoveredPaise)} in this employee's advance ledger.`}{' '}
-              Final payable: <strong>{formatPaiseAsINR(s.finalPayablePaise)}</strong>.
-              {settings?.adminEmail
-                ? ` The slip will be emailed to ${settings.adminEmail}.`
-                : ' No admin email is configured in Settings, so nothing will be emailed.'}
+              Final payable: <strong>{formatPaiseAsINR(s.finalPayablePaise)}</strong>. A PDF receipt will download
+              automatically once finalized.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

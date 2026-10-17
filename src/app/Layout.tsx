@@ -1,12 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import {
-  Users,
-  CalendarCheck2,
-  Wallet,
-  ReceiptText,
-  DatabaseBackup,
-  Settings,
-} from 'lucide-react';
+import { Users, CalendarCheck2, Wallet, ReceiptText, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -23,11 +16,10 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Employees', end: true, icon: Users, color: 'text-sky-300' },
-  { to: '/attendance', label: 'Attendance', icon: CalendarCheck2, color: 'text-emerald-300' },
+  { to: '/', label: 'Attendance', end: true, icon: CalendarCheck2, color: 'text-emerald-300' },
+  { to: '/employees', label: 'Employees', icon: Users, color: 'text-sky-300' },
   { to: '/advances', label: 'Advances', icon: Wallet, color: 'text-amber-300' },
   { to: '/salary', label: 'Salary & Records', icon: ReceiptText, color: 'text-fuchsia-300' },
-  { to: '/backup', label: 'Backup & Restore', icon: DatabaseBackup, color: 'text-cyan-300' },
   { to: '/settings', label: 'Settings', icon: Settings, color: 'text-indigo-200' },
 ];
 

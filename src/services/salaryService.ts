@@ -91,7 +91,7 @@ export async function computeSalarySlip(
  * snapshot so it can never silently change or be double-counted later.
  * One-way — throws if this employee/period was already finalized.
  */
-export async function finalizeSalary(employeeId: string, slip: SalarySlip, emailedTo: string | null) {
+export async function finalizeSalary(employeeId: string, slip: SalarySlip) {
   if (slip.finalized) {
     throw new Error('This period was already finalized.');
   }
@@ -122,6 +122,5 @@ export async function finalizeSalary(employeeId: string, slip: SalarySlip, email
     snapshot: slip.snapshot,
     advanceTransactionId: repayment?.id ?? null,
     paymentId: payment.id,
-    emailedTo,
   });
 }
