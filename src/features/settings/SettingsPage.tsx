@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { getSettings, updateSettings } from '../../db/repositories/settings';
-import { db } from '../../db/database';
+import { updateSettings, settingsDocRef } from '../../db/repositories/settings';
+import { allAttendanceQuery } from '../../db/repositories/attendance';
+import { employeesQuery } from '../../db/repositories/employees';
+import { useCollection, useDocument } from '../../firebase/hooks';
+import { signOutUser } from '../../firebase/auth';
 import { Button } from '../../components/ui/Button';
 import { WEEKDAY_LABELS } from '../../utils/dates';
-import type { AppSettings } from '../../types';
+import type { AppSettings, AttendanceRecord, Employee } from '../../types';
 
 export function SettingsPage() {
-  const existing = useLiveQuery(() => getSettings(), []);
+  const existing = useDocument<AppSettings>(settingsDocRef(), []);
   const [form, setForm] = useState<AppSettings | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -26,9 +28,14 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500">Configure the weekly off day used for attendance and salary for all employees.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
+          <p className="text-sm text-slate-500">Configure the weekly off day used for attendance and salary for all employees.</p>
+        </div>
+        <Button variant="secondary" onClick={() => void signOutUser()}>
+          Sign Out
+        </Button>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -75,18 +82,15 @@ export function SettingsPage() {
 }
 
 function DataSummary() {
-  const counts = useLiveQuery(async () => ({
-    employees: await db.employees.count(),
-    attendance: await db.attendance.count(),
-  }));
+  const employees = useCollection<Employee>(employeesQuery(), []);
+  const attendance = useCollection<AttendanceRecord>(allAttendanceQuery(), []);
 
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-      <p className="font-medium">Your data lives in this browser only.</p>
+      <p className="font-medium">Your data is stored in the cloud and synced to every device you sign into.</p>
       <p className="mt-1">
-        All {counts?.employees ?? 0} employees and {counts?.attendance ?? 0} attendance records are stored locally
-        in this browser's IndexedDB. Clearing browser data, losing this device, or storage corruption can
-        permanently delete this data. Use <strong>Backup &amp; Restore</strong> regularly to export a copy.
+        All {employees?.length ?? 0} employees and {attendance?.length ?? 0} attendance records are stored in your
+        Firestore database. Use <strong>Backup &amp; Restore</strong> regularly to export a copy as well.
       </p>
     </div>
   );

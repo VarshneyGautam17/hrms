@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
-import { db } from '../../db/database';
+import { employeesQuery } from '../../db/repositories/employees';
+import { useCollection } from '../../firebase/hooks';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/Card';
 import { formatPaiseAsINR } from '../../utils/currency';
@@ -9,7 +9,7 @@ import { EmployeeFormDialog } from './EmployeeFormDialog';
 import type { Employee } from '../../types';
 
 export function EmployeesPage() {
-  const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
+  const employees = useCollection<Employee>(employeesQuery(), []);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Employee | null>(null);
   const [showForm, setShowForm] = useState(false);

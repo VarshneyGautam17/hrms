@@ -1,37 +1,36 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../db/database';
 import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
 import { formatDisplayDate, todayISO } from '../../utils/dates';
 import { Badge, StatusBadge } from '../../components/ui/Badge';
 import { Card, EmptyState } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/Field';
-import { computeOutstandingBalance, giveAdvance, recordRepayment } from '../../db/repositories/advances';
-import { setAttendanceStatus } from '../../db/repositories/attendance';
+import { computeOutstandingBalance, giveAdvance, recordRepayment, advancesForEmployeeQuery } from '../../db/repositories/advances';
+import { setAttendanceStatus, attendanceForEmployeeQuery, attendanceDocRef } from '../../db/repositories/attendance';
+import { employeeDocRef } from '../../db/repositories/employees';
+import { useCollection, useDocument } from '../../firebase/hooks';
 import { AttendanceStatusButtons } from '../attendance/AttendanceStatusButtons';
 import { EmployeeAttendanceCalendar } from './EmployeeAttendanceCalendar';
 import { toCSV, downloadCSV } from '../../services/csvExport';
-import type { AdvanceTransactionType, MarkedAttendanceStatus } from '../../types';
+import type { AdvanceTransactionType, AdvanceTransaction, AttendanceRecord, Employee, MarkedAttendanceStatus } from '../../types';
 
 export function EmployeeDetailPage() {
   const { id } = useParams<{ id: string }>();
 
-  const employee = useLiveQuery(() => (id ? db.employees.get(id) : undefined), [id]);
-  const attendance = useLiveQuery(
-    () => (id ? db.attendance.where('employeeId').equals(id).reverse().sortBy('date') : []),
-    [id],
+  const employee = useDocument<Employee>(id ? employeeDocRef(id) : null, [id]);
+  const attendanceUnsorted = useCollection<AttendanceRecord>(id ? attendanceForEmployeeQuery(id) : null, [id]);
+  const advancesUnsorted = useCollection<AdvanceTransaction>(id ? advancesForEmployeeQuery(id) : null, [id]);
+  const attendance = useMemo(
+    () => (attendanceUnsorted ? [...attendanceUnsorted].sort((a, b) => b.date.localeCompare(a.date)) : undefined),
+    [attendanceUnsorted],
   );
-  const advances = useLiveQuery(
-    () => (id ? db.advanceTransactions.where('employeeId').equals(id).sortBy('date') : []),
-    [id],
+  const advances = useMemo(
+    () => (advancesUnsorted ? [...advancesUnsorted].sort((a, b) => a.date.localeCompare(b.date)) : undefined),
+    [advancesUnsorted],
   );
   const today = todayISO();
-  const todayRecord = useLiveQuery(
-    () => (id ? db.attendance.where('[employeeId+date]').equals([id, today]).first() : undefined),
-    [id, today],
-  );
+  const todayRecord = useDocument<AttendanceRecord>(id ? attendanceDocRef(id, today) : null, [id, today]);
 
   if (!id) return null;
   if (employee === undefined) return <p className="text-sm text-slate-500">Loading…</p>;

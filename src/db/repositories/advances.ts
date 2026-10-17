@@ -1,20 +1,33 @@
-import { db } from '../database';
+import { getDocs, setDoc, query, where, orderBy } from 'firebase/firestore';
+import { userCollection, userDoc } from '../../firebase/paths';
 import type { AdvanceTransaction } from '../../types';
 import { newId } from '../../utils/id';
 
+const COLLECTION = 'advanceTransactions';
+
+export function advancesForEmployeeQuery(employeeId: string) {
+  return query(userCollection(COLLECTION), where('employeeId', '==', employeeId));
+}
+
+export function allAdvancesQuery() {
+  return query(userCollection(COLLECTION), orderBy('date', 'desc'));
+}
+
 export async function listAdvancesForEmployee(employeeId: string): Promise<AdvanceTransaction[]> {
-  return db.advanceTransactions.where('employeeId').equals(employeeId).sortBy('date');
+  const snap = await getDocs(advancesForEmployeeQuery(employeeId));
+  return snap.docs.map((d) => d.data() as AdvanceTransaction).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export async function listAllAdvances(): Promise<AdvanceTransaction[]> {
-  return db.advanceTransactions.orderBy('date').toArray();
+  const snap = await getDocs(allAdvancesQuery());
+  return snap.docs.map((d) => d.data() as AdvanceTransaction);
 }
 
-export async function listAdvancesInRange(
-  startDate: string,
-  endDate: string,
-): Promise<AdvanceTransaction[]> {
-  return db.advanceTransactions.where('date').between(startDate, endDate, true, true).toArray();
+export async function listAdvancesInRange(startDate: string, endDate: string): Promise<AdvanceTransaction[]> {
+  const snap = await getDocs(
+    query(userCollection(COLLECTION), where('date', '>=', startDate), where('date', '<=', endDate)),
+  );
+  return snap.docs.map((d) => d.data() as AdvanceTransaction);
 }
 
 export interface NewAdvanceInput {
@@ -38,7 +51,7 @@ export async function addAdvanceTransaction(input: NewAdvanceInput): Promise<Adv
     notes: input.notes ?? null,
     createdAt: new Date().toISOString(),
   };
-  await db.advanceTransactions.add(transaction);
+  await setDoc(userDoc(COLLECTION, transaction.id), transaction);
   return transaction;
 }
 

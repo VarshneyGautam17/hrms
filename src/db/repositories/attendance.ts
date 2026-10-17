@@ -1,16 +1,42 @@
-import { db } from '../database';
-import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
+import { getDoc, getDocs, setDoc, query, where } from 'firebase/firestore';
+import { userCollection, userDoc } from '../../firebase/paths';
 import { newId } from '../../utils/id';
+import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
+
+const COLLECTION = 'attendance';
+
+/** One attendance doc per employee/day — the doc id itself enforces that uniqueness. */
+function docId(employeeId: string, date: string): string {
+  return `${employeeId}_${date}`;
+}
+
+export function attendanceDocRef(employeeId: string, date: string) {
+  return userDoc(COLLECTION, docId(employeeId, date));
+}
 
 export async function getAttendanceForEmployeeDate(
   employeeId: string,
   date: string,
 ): Promise<AttendanceRecord | undefined> {
-  return db.attendance.where('[employeeId+date]').equals([employeeId, date]).first();
+  const snap = await getDoc(userDoc(COLLECTION, docId(employeeId, date)));
+  return snap.exists() ? (snap.data() as AttendanceRecord) : undefined;
+}
+
+export function allAttendanceQuery() {
+  return userCollection(COLLECTION);
+}
+
+export function attendanceForDateQuery(date: string) {
+  return query(userCollection(COLLECTION), where('date', '==', date));
+}
+
+export function attendanceForEmployeeQuery(employeeId: string) {
+  return query(userCollection(COLLECTION), where('employeeId', '==', employeeId));
 }
 
 export async function listAttendanceForDate(date: string): Promise<AttendanceRecord[]> {
-  return db.attendance.where('date').equals(date).toArray();
+  const snap = await getDocs(attendanceForDateQuery(date));
+  return snap.docs.map((d) => d.data() as AttendanceRecord);
 }
 
 export async function listAttendanceForEmployeeInRange(
@@ -18,18 +44,18 @@ export async function listAttendanceForEmployeeInRange(
   startDate: string,
   endDate: string,
 ): Promise<AttendanceRecord[]> {
-  const all = await db.attendance.where('employeeId').equals(employeeId).toArray();
-  return all.filter((a) => a.date >= startDate && a.date <= endDate);
+  const snap = await getDocs(attendanceForEmployeeQuery(employeeId));
+  return snap.docs.map((d) => d.data() as AttendanceRecord).filter((a) => a.date >= startDate && a.date <= endDate);
 }
 
-export async function listAttendanceInRange(
-  startDate: string,
-  endDate: string,
-): Promise<AttendanceRecord[]> {
-  return db.attendance.where('date').between(startDate, endDate, true, true).toArray();
+export async function listAttendanceInRange(startDate: string, endDate: string): Promise<AttendanceRecord[]> {
+  const snap = await getDocs(
+    query(userCollection(COLLECTION), where('date', '>=', startDate), where('date', '<=', endDate)),
+  );
+  return snap.docs.map((d) => d.data() as AttendanceRecord);
 }
 
-/** Sets (or clears, when status is null) one employee's attendance for one day. */
+/** Sets (or overwrites) one employee's attendance for one day. */
 export async function setAttendanceStatus(
   employeeId: string,
   date: string,
@@ -37,26 +63,14 @@ export async function setAttendanceStatus(
   notes: string | null = null,
 ): Promise<AttendanceRecord> {
   const existing = await getAttendanceForEmployeeDate(employeeId, date);
-  const now = new Date().toISOString();
-
-  if (existing) {
-    const updated: AttendanceRecord = { ...existing, status, notes, updatedAt: now };
-    await db.attendance.put(updated);
-    return updated;
-  }
-
   const record: AttendanceRecord = {
-    id: newId(),
+    id: existing?.id ?? newId(),
     employeeId,
     date,
     status,
     notes,
-    updatedAt: now,
+    updatedAt: new Date().toISOString(),
   };
-  await db.attendance.add(record);
+  await setDoc(userDoc(COLLECTION, docId(employeeId, date)), record);
   return record;
-}
-
-export async function deleteAttendance(id: string): Promise<void> {
-  await db.attendance.delete(id);
 }

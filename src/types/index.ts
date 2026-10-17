@@ -80,12 +80,7 @@ export interface AppSettings {
   updatedAt: string;
 }
 
-export interface AppMetadata {
-  key: string;
-  value: string;
-}
-
-export const DB_SCHEMA_VERSION = 6;
+export const DB_SCHEMA_VERSION = 7;
 
 export interface BackupFile {
   schemaVersion: number;
@@ -97,6 +92,5 @@ export interface BackupFile {
     advanceTransactions: AdvanceTransaction[];
     salaryPayments: SalaryPayment[];
     settings: AppSettings[];
-    appMetadata: AppMetadata[];
   };
 }

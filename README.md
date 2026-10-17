@@ -1,32 +1,22 @@
-# React + TypeScript + Vite
+# HRMS — Attendance & Salary
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A small HR app (employees, attendance, advances, salary slips) built with React + Vite, synced across devices via Firebase (Firestore + Auth) and deployed as a static site on GitHub Pages.
 
-Currently, two official plugins are available:
+## One-time setup (do this before the app will run)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. **Create a Firebase project** at [console.firebase.google.com](https://console.firebase.google.com) (the free Spark plan is enough).
+2. **Enable Firestore**: Build → Firestore Database → Create database → production mode, any region.
+3. **Enable Email/Password sign-in**: Build → Authentication → Sign-in method → enable "Email/Password".
+4. **Set the Firestore security rules**: Build → Firestore Database → Rules → paste the contents of [`firestore.rules`](./firestore.rules) → Publish. (This is what keeps your data private to your own account — don't skip it.)
+5. **Register a web app**: Project Settings (gear icon) → General → "Your apps" → add a web app (`</>`) → copy the config values shown.
+6. **Local development**: copy `.env.local.example` to `.env.local` and fill in the 6 values from step 5. `.env.local` is gitignored — never commit it.
+7. **Deployed build (GitHub Pages)**: add the same 6 values as repository secrets — Settings → Secrets and variables → Actions — named exactly as in `.env.local.example` (`VITE_FIREBASE_API_KEY`, etc.). Then Settings → Pages → Source → "GitHub Actions". Pushing to `master` runs [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml), which builds and publishes to `https://<your-username>.github.io/hrms/`.
 
-## React Compiler
+The first time you open the app (locally or on the deployed site), use the "create one" link on the sign-in screen to make your account — the same email/password works on every device and keeps your data in sync.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Scripts
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+- `npm run dev` — local dev server
+- `npm run build` — type-check + production build (`dist/`)
+- `npm test` — run the test suite (uses an in-memory fake of Firestore/Auth, no real project needed)
+- `npm run lint` — oxlint

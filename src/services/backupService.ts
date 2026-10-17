@@ -1,15 +1,24 @@
-import { db, ensureDefaultSettings } from '../db/database';
-import type { BackupFile } from '../types';
+import { getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import { userCollection, userDoc } from '../firebase/paths';
+import { firestore } from '../firebase/config';
+import { createDefaultSettings } from '../db/repositories/settings';
+import type { BackupFile, Employee, AttendanceRecord, AdvanceTransaction, SalaryPayment, AppSettings } from '../types';
 import { DB_SCHEMA_VERSION } from '../types';
 
+const COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments'] as const;
+
+async function fetchAll<T>(name: string): Promise<T[]> {
+  const snap = await getDocs(userCollection(name));
+  return snap.docs.map((d) => d.data() as T);
+}
+
 export async function exportBackup(): Promise<BackupFile> {
-  const [employees, attendance, advanceTransactions, salaryPayments, settings, appMetadata] = await Promise.all([
-    db.employees.toArray(),
-    db.attendance.toArray(),
-    db.advanceTransactions.toArray(),
-    db.salaryPayments.toArray(),
-    db.settings.toArray(),
-    db.appMetadata.toArray(),
+  const [employees, attendance, advanceTransactions, salaryPayments, settingsRow] = await Promise.all([
+    fetchAll<Employee>('employees'),
+    fetchAll<AttendanceRecord>('attendance'),
+    fetchAll<AdvanceTransaction>('advanceTransactions'),
+    fetchAll<SalaryPayment>('salaryPayments'),
+    fetchAll<AppSettings>('settings'),
   ]);
 
   return {
@@ -21,8 +30,7 @@ export async function exportBackup(): Promise<BackupFile> {
       attendance,
       advanceTransactions,
       salaryPayments,
-      settings,
-      appMetadata,
+      settings: settingsRow,
     },
   };
 }
@@ -51,7 +59,7 @@ export interface ValidationResult {
   recordCounts: Record<string, number>;
 }
 
-const REQUIRED_COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments', 'settings', 'appMetadata'] as const;
+const REQUIRED_COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments', 'settings'] as const;
 
 export function validateBackup(raw: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -91,7 +99,6 @@ export function validateBackup(raw: unknown): ValidationResult {
 
   // Duplicate ID detection within each collection that has an `id` field.
   for (const key of REQUIRED_COLLECTIONS) {
-    if (key === 'appMetadata') continue; // keyed by `key`, not `id`
     const value = (backup.data as Record<string, unknown>)[key];
     if (!Array.isArray(value)) continue;
     const ids = new Set<string>();
@@ -111,34 +118,45 @@ export function validateBackup(raw: unknown): ValidationResult {
   return { valid: issues.length === 0, issues, recordCounts };
 }
 
+/** Firestore batches top out at 500 writes; chunk anything larger. */
+async function batchWriteAll(docs: { path: string; id: string; data: object }[]): Promise<void> {
+  for (let i = 0; i < docs.length; i += 450) {
+    const batch = writeBatch(firestore);
+    for (const d of docs.slice(i, i + 450)) {
+      batch.set(userDoc(d.path, d.id), d.data);
+    }
+    await batch.commit();
+  }
+}
+
+async function deleteAllInCollection(name: string): Promise<void> {
+  const snap = await getDocs(userCollection(name));
+  const ids = snap.docs.map((d) => d.id);
+  for (let i = 0; i < ids.length; i += 450) {
+    const batch = writeBatch(firestore);
+    for (const id of ids.slice(i, i + 450)) {
+      batch.delete(userDoc(name, id));
+    }
+    await batch.commit();
+  }
+}
+
 /**
- * Replaces all local data with the contents of a validated backup, inside a
- * single IndexedDB transaction so a failure leaves existing data untouched.
+ * Replaces all current data with the contents of a validated backup.
+ * Clears every collection first, then writes the backup's rows back in.
  */
 export async function restoreBackup(backup: BackupFile): Promise<void> {
-  await db.transaction(
-    'rw',
-    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
-    async () => {
-      await Promise.all([
-        db.employees.clear(),
-        db.attendance.clear(),
-        db.advanceTransactions.clear(),
-        db.salaryPayments.clear(),
-        db.settings.clear(),
-        db.appMetadata.clear(),
-      ]);
+  for (const name of REQUIRED_COLLECTIONS) {
+    await deleteAllInCollection(name);
+  }
 
-      await Promise.all([
-        db.employees.bulkAdd(backup.data.employees),
-        db.attendance.bulkAdd(backup.data.attendance),
-        db.advanceTransactions.bulkAdd(backup.data.advanceTransactions),
-        db.salaryPayments.bulkAdd(backup.data.salaryPayments),
-        db.settings.bulkAdd(backup.data.settings),
-        db.appMetadata.bulkAdd(backup.data.appMetadata),
-      ]);
-    },
-  );
+  await batchWriteAll(backup.data.employees.map((e) => ({ path: 'employees', id: e.id, data: e })));
+  await batchWriteAll(backup.data.attendance.map((a) => ({ path: 'attendance', id: `${a.employeeId}_${a.date}`, data: a })));
+  await batchWriteAll(backup.data.advanceTransactions.map((a) => ({ path: 'advanceTransactions', id: a.id, data: a })));
+  await batchWriteAll(backup.data.salaryPayments.map((p) => ({ path: 'salaryPayments', id: p.id, data: p })));
+  for (const s of backup.data.settings) {
+    await setDoc(userDoc('settings', s.id), s);
+  }
 }
 
 export async function readBackupFile(file: File): Promise<unknown> {
@@ -148,24 +166,13 @@ export async function readBackupFile(file: File): Promise<unknown> {
 
 /**
  * Permanently wipes every employee, attendance, advance, payment and
- * settings record from this browser's database, then re-seeds the default
- * settings row. There is no undo — export a backup first if the data might
+ * settings record for the signed-in user, then re-seeds the default
+ * settings doc. There is no undo — export a backup first if the data might
  * still be needed.
  */
 export async function resetAllData(): Promise<void> {
-  await db.transaction(
-    'rw',
-    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
-    async () => {
-      await Promise.all([
-        db.employees.clear(),
-        db.attendance.clear(),
-        db.advanceTransactions.clear(),
-        db.salaryPayments.clear(),
-        db.settings.clear(),
-        db.appMetadata.clear(),
-      ]);
-    },
-  );
-  await ensureDefaultSettings();
+  for (const name of COLLECTIONS) {
+    await deleteAllInCollection(name);
+  }
+  await setDoc(userDoc('settings', 'default'), createDefaultSettings());
 }

@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { listAttendanceForEmployeeInRange } from '../../db/repositories/attendance';
-import { getSettings } from '../../db/repositories/settings';
+import { attendanceForEmployeeQuery } from '../../db/repositories/attendance';
+import { settingsDocRef } from '../../db/repositories/settings';
+import { useCollection, useDocument } from '../../firebase/hooks';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
 import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
 import { currentPeriod, previousPeriods, daysInPeriod } from '../../utils/dates';
-import type { Employee } from '../../types';
+import type { AppSettings, AttendanceRecord, Employee } from '../../types';
 
 /** Shows the last 3 months (current + 2 previous) as day-by-day attendance calendars. */
 export function EmployeeAttendanceCalendar({ employee }: { employee: Employee }) {
@@ -16,11 +16,12 @@ export function EmployeeAttendanceCalendar({ employee }: { employee: Employee })
   const firstDate = daysInPeriod(periods[periods.length - 1])[0];
   const lastDate = daysInPeriod(periods[0]).slice(-1)[0];
 
-  const attendance = useLiveQuery(
-    () => listAttendanceForEmployeeInRange(employee.id, firstDate, lastDate),
-    [employee.id, firstDate, lastDate],
+  const allAttendance = useCollection<AttendanceRecord>(attendanceForEmployeeQuery(employee.id), [employee.id]);
+  const attendance = useMemo(
+    () => allAttendance?.filter((a) => a.date >= firstDate && a.date <= lastDate),
+    [allAttendance, firstDate, lastDate],
   );
-  const settings = useLiveQuery(() => getSettings(), []);
+  const settings = useDocument<AppSettings>(settingsDocRef(), []);
 
   if (!attendance || !settings) return <p className="text-sm text-slate-500">Loading calendar…</p>;
 

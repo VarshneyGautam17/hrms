@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../db/database';
-import { setAttendanceStatus } from '../../db/repositories/attendance';
-import { getSettings } from '../../db/repositories/settings';
+import { setAttendanceStatus, attendanceForDateQuery } from '../../db/repositories/attendance';
+import { employeesQuery } from '../../db/repositories/employees';
+import { settingsDocRef } from '../../db/repositories/settings';
+import { useCollection, useDocument } from '../../firebase/hooks';
 import { AttendanceStatusButtons } from './AttendanceStatusButtons';
 import { EmployeeCalendarModal } from './EmployeeCalendarModal';
 import { Badge } from '../../components/ui/Badge';
@@ -10,15 +10,15 @@ import { Button } from '../../components/ui/Button';
 import { SummaryCard } from '../../components/ui/Card';
 import { TextField } from '../../components/ui/Field';
 import { todayISO, weekdayOf, isWeeklyOffDay, WEEKDAY_LABELS } from '../../utils/dates';
-import type { AttendanceRecord, Employee, MarkedAttendanceStatus } from '../../types';
+import type { AppSettings, AttendanceRecord, Employee, MarkedAttendanceStatus } from '../../types';
 
 export function AttendancePage() {
   const [date, setDate] = useState(todayISO());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [calendarEmployee, setCalendarEmployee] = useState<Employee | null>(null);
-  const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
-  const settings = useLiveQuery(() => getSettings(), []);
-  const dayAttendance = useLiveQuery(() => db.attendance.where('date').equals(date).toArray(), [date]);
+  const employees = useCollection<Employee>(employeesQuery(), []);
+  const settings = useDocument<AppSettings>(settingsDocRef(), []);
+  const dayAttendance = useCollection<AttendanceRecord>(attendanceForDateQuery(date), [date]);
 
   const attendanceByEmployee = useMemo(() => {
     const map = new Map<string, AttendanceRecord>();

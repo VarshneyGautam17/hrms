@@ -1,21 +1,23 @@
-import { db } from '../database';
+import { getDocs, setDoc, query, where } from 'firebase/firestore';
+import { userCollection, userDoc } from '../../firebase/paths';
 import type { SalaryPayment } from '../../types';
 import { newId } from '../../utils/id';
 
+const COLLECTION = 'salaryPayments';
+
 export async function listPaymentsForEmployee(employeeId: string): Promise<SalaryPayment[]> {
-  return db.salaryPayments.where('employeeId').equals(employeeId).sortBy('date');
+  const snap = await getDocs(query(userCollection(COLLECTION), where('employeeId', '==', employeeId)));
+  return snap.docs.map((d) => d.data() as SalaryPayment).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export async function listPaymentsForEmployeePeriod(
-  employeeId: string,
-  period: string,
-): Promise<SalaryPayment[]> {
+export async function listPaymentsForEmployeePeriod(employeeId: string, period: string): Promise<SalaryPayment[]> {
   const all = await listPaymentsForEmployee(employeeId);
   return all.filter((p) => p.period === period);
 }
 
 export async function listPaymentsForPeriod(period: string): Promise<SalaryPayment[]> {
-  return db.salaryPayments.where('period').equals(period).toArray();
+  const snap = await getDocs(query(userCollection(COLLECTION), where('period', '==', period)));
+  return snap.docs.map((d) => d.data() as SalaryPayment);
 }
 
 export interface NewPaymentInput {
@@ -41,7 +43,7 @@ export async function addSalaryPayment(input: NewPaymentInput): Promise<SalaryPa
     notes: input.notes ?? null,
     createdAt: new Date().toISOString(),
   };
-  await db.salaryPayments.add(payment);
+  await setDoc(userDoc(COLLECTION, payment.id), payment);
   return payment;
 }
 

@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { listAttendanceForEmployeeInRange } from '../../db/repositories/attendance';
-import { getSettings } from '../../db/repositories/settings';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { attendanceForEmployeeQuery } from '../../db/repositories/attendance';
+import { settingsDocRef } from '../../db/repositories/settings';
+import { useCollection, useDocument } from '../../firebase/hooks';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
 import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
 import { currentPeriod, daysInPeriod, formatDisplayPeriod, periodToDate } from '../../utils/dates';
 import { format, addMonths, subMonths } from 'date-fns';
-import type { Employee } from '../../types';
+import type { AppSettings, AttendanceRecord, Employee } from '../../types';
 
 interface Props {
   employee: Employee;
@@ -29,11 +29,14 @@ export function EmployeeCalendarModal({ employee, onClose }: Props) {
   }, [onClose]);
 
   const days = daysInPeriod(period);
-  const attendance = useLiveQuery(
-    () => listAttendanceForEmployeeInRange(employee.id, days[0], days[days.length - 1]),
-    [employee.id, days[0], days[days.length - 1]],
+  const firstDate = days[0];
+  const lastDate = days[days.length - 1];
+  const allAttendance = useCollection<AttendanceRecord>(attendanceForEmployeeQuery(employee.id), [employee.id]);
+  const attendance = useMemo(
+    () => allAttendance?.filter((a) => a.date >= firstDate && a.date <= lastDate),
+    [allAttendance, firstDate, lastDate],
   );
-  const settings = useLiveQuery(() => getSettings(), []);
+  const settings = useDocument<AppSettings>(settingsDocRef(), []);
 
   const classification =
     attendance && settings ? summarizeAttendanceForEmployee(employee, period, attendance, settings.weeklyOffDay).days : null;

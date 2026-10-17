@@ -1,6 +1,17 @@
-import { db } from '../database';
+import { getDoc, getDocs, setDoc, updateDoc, query, where, orderBy } from 'firebase/firestore';
+import { userCollection, userDoc } from '../../firebase/paths';
 import type { Employee } from '../../types';
 import { newId } from '../../utils/id';
+
+const COLLECTION = 'employees';
+
+export function employeesQuery() {
+  return query(userCollection(COLLECTION), orderBy('name'));
+}
+
+export function employeeDocRef(id: string) {
+  return userDoc(COLLECTION, id);
+}
 
 export interface NewEmployeeInput {
   employeeCode: string;
@@ -12,17 +23,18 @@ export interface NewEmployeeInput {
 }
 
 export async function listEmployees(): Promise<Employee[]> {
-  return db.employees.orderBy('name').toArray();
+  const snap = await getDocs(employeesQuery());
+  return snap.docs.map((d) => d.data() as Employee);
 }
 
 export async function getEmployee(id: string): Promise<Employee | undefined> {
-  return db.employees.get(id);
+  const snap = await getDoc(userDoc(COLLECTION, id));
+  return snap.exists() ? (snap.data() as Employee) : undefined;
 }
 
 export async function isEmployeeCodeTaken(code: string, excludeId?: string): Promise<boolean> {
-  const match = await db.employees.where('employeeCode').equals(code).first();
-  if (!match) return false;
-  return match.id !== excludeId;
+  const snap = await getDocs(query(userCollection(COLLECTION), where('employeeCode', '==', code)));
+  return snap.docs.some((d) => d.id !== excludeId);
 }
 
 export async function createEmployee(input: NewEmployeeInput): Promise<Employee> {
@@ -42,7 +54,7 @@ export async function createEmployee(input: NewEmployeeInput): Promise<Employee>
     createdAt: now,
     updatedAt: now,
   };
-  await db.employees.add(employee);
+  await setDoc(userDoc(COLLECTION, employee.id), employee);
   return employee;
 }
 
@@ -56,5 +68,5 @@ export async function updateEmployee(
       throw new Error(`Employee code "${changes.employeeCode}" is already in use.`);
     }
   }
-  await db.employees.update(id, { ...changes, updatedAt: new Date().toISOString() });
+  await updateDoc(userDoc(COLLECTION, id), { ...changes, updatedAt: new Date().toISOString() });
 }

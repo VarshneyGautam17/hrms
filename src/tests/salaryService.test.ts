@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { db } from '../db/database';
+import { __resetFakeFirestore } from './mocks/fakeFirestore';
 import { createEmployee } from '../db/repositories/employees';
 import { setAttendanceStatus } from '../db/repositories/attendance';
 import { addAdvanceTransaction } from '../db/repositories/advances';
@@ -9,25 +9,8 @@ import { daysInPeriod, weekdayOf } from '../utils/dates';
 
 const PERIOD = '2026-02'; // 28 days
 
-async function clearAll() {
-  await db.transaction(
-    'rw',
-    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
-    async () => {
-      await Promise.all([
-        db.employees.clear(),
-        db.attendance.clear(),
-        db.advanceTransactions.clear(),
-        db.salaryPayments.clear(),
-        db.settings.clear(),
-        db.appMetadata.clear(),
-      ]);
-    },
-  );
-}
-
 beforeEach(async () => {
-  await clearAll();
+  __resetFakeFirestore();
   await updateSettings({ weeklyOffDay: 1 });
 });
 

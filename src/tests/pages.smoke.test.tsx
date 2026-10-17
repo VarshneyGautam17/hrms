@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { db } from '../db/database';
+import { __resetFakeFirestore } from './mocks/fakeFirestore';
 import { createEmployee } from '../db/repositories/employees';
+import { ensureDefaultSettings } from '../db/repositories/settings';
 import { EmployeesPage } from '../features/employees/EmployeesPage';
 import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -13,25 +14,10 @@ import { BackupPage } from '../features/backup/BackupPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { todayISO } from '../utils/dates';
 
-async function clearAll() {
-  await db.transaction(
-    'rw',
-    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
-    async () => {
-      await Promise.all([
-        db.employees.clear(),
-        db.attendance.clear(),
-        db.advanceTransactions.clear(),
-        db.salaryPayments.clear(),
-        db.settings.clear(),
-        db.appMetadata.clear(),
-      ]);
-    },
-  );
-}
-
 beforeEach(async () => {
-  await clearAll();
+  __resetFakeFirestore();
+  // The real app ensures this exists once, in App.tsx, right after sign-in.
+  await ensureDefaultSettings();
 });
 
 function renderAt(path: string, element: React.ReactNode) {

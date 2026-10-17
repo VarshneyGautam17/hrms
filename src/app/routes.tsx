@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createHashRouter } from 'react-router-dom';
 import { Layout } from './Layout';
 import { EmployeesPage } from '../features/employees/EmployeesPage';
 import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
@@ -8,7 +8,10 @@ import { SalaryPage } from '../features/salary/SalaryPage';
 import { BackupPage } from '../features/backup/BackupPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 
-export const router = createBrowserRouter([
+// Hash routing (URLs like #/attendance) because GitHub Pages is a static
+// host with no server-side rewrites — a direct link or refresh on a
+// browser-history path would 404 without it.
+export const router = createHashRouter([
   {
     path: '/',
     element: <Layout />,

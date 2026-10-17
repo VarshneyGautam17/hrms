@@ -1,18 +1,18 @@
 import { useState, type FormEvent } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../db/database';
-import { giveAdvance, recordRepayment, computeOutstandingBalance } from '../../db/repositories/advances';
+import { giveAdvance, recordRepayment, computeOutstandingBalance, allAdvancesQuery } from '../../db/repositories/advances';
+import { employeesQuery } from '../../db/repositories/employees';
+import { useCollection } from '../../firebase/hooks';
 import { Button } from '../../components/ui/Button';
 import { SelectField, TextField } from '../../components/ui/Field';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState, SummaryCard } from '../../components/ui/Card';
 import { formatDisplayDate, todayISO } from '../../utils/dates';
 import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
-import type { AdvanceTransactionType } from '../../types';
+import type { AdvanceTransaction, AdvanceTransactionType, Employee } from '../../types';
 
 export function AdvancesPage() {
-  const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
-  const transactions = useLiveQuery(() => db.advanceTransactions.orderBy('date').reverse().toArray(), []);
+  const employees = useCollection<Employee>(employeesQuery(), []);
+  const transactions = useCollection<AdvanceTransaction>(allAdvancesQuery(), []);
 
   const [employeeId, setEmployeeId] = useState('');
   const [date, setDate] = useState(todayISO());
