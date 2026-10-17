@@ -1,6 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { Layout } from './Layout';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { EmployeesPage } from '../features/employees/EmployeesPage';
 import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -14,7 +13,7 @@ export const router = createBrowserRouter([
     path: '/',
     element: <Layout />,
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, element: <EmployeesPage /> },
       { path: 'employees', element: <EmployeesPage /> },
       { path: 'employees/:id', element: <EmployeeDetailPage /> },
       { path: 'attendance', element: <AttendancePage /> },

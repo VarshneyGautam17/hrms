@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/employees', label: 'Employees' },
+  { to: '/', label: 'Employees', end: true },
   { to: '/attendance', label: 'Attendance' },
   { to: '/advances', label: 'Advances' },
   { to: '/salary', label: 'Salary & Records' },

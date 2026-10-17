@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { db } from '../db/database';
 import { createEmployee } from '../db/repositories/employees';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { EmployeesPage } from '../features/employees/EmployeesPage';
 import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -44,22 +43,17 @@ function renderAt(path: string, element: React.ReactNode) {
 }
 
 describe('page smoke tests (render without crashing)', () => {
-  it('Dashboard renders with no employees (empty state)', async () => {
-    renderAt('/', <DashboardPage />);
-    await waitFor(() => expect(screen.getByText(/no employees yet/i)).toBeInTheDocument());
+  it('Employees page renders with no employees (empty state)', async () => {
+    renderAt('/', <EmployeesPage />);
+    await waitFor(() => expect(screen.getByText(/no employees found/i)).toBeInTheDocument());
   });
 
-  it('Dashboard renders with data', async () => {
-    await createEmployee({ employeeCode: 'S1', name: 'Smoke Test', joiningDate: '2026-01-01', monthlySalaryPaise: 10000 });
-    renderAt('/', <DashboardPage />);
-    await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('Alerts')).toBeInTheDocument());
-  });
-
-  it('Employees page renders and lists an employee', async () => {
+  it('Employees page renders and lists an employee, with today\'s present/absent counts', async () => {
     await createEmployee({ employeeCode: 'S2', name: 'Jane Doe', joiningDate: '2026-01-01', monthlySalaryPaise: 10000 });
     renderAt('/employees', <EmployeesPage />);
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
+    expect(screen.getByText('Present Today')).toBeInTheDocument();
+    expect(screen.getByText('Absent Today')).toBeInTheDocument();
   });
 
   it('Employee detail page renders for an existing employee', async () => {
