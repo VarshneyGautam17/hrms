@@ -60,8 +60,8 @@ export function SettingsPage() {
       </div>
 
       <p className="text-xs text-slate-500">
-        Changing these rules does not rewrite already-finalized salary settlements — each settlement stores a
-        snapshot of the figures used to calculate it at the time.
+        Salary is always calculated live from current attendance, advances and these settings — nothing is locked
+        in, so changing a rule immediately affects every salary slip.
       </p>
 
       <div className="flex items-center gap-3">
@@ -78,17 +78,15 @@ function DataSummary() {
   const counts = useLiveQuery(async () => ({
     employees: await db.employees.count(),
     attendance: await db.attendance.count(),
-    settlements: await db.salarySettlements.count(),
   }));
 
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-medium">Your data lives in this browser only.</p>
       <p className="mt-1">
-        All {counts?.employees ?? 0} employees, {counts?.attendance ?? 0} attendance records and{' '}
-        {counts?.settlements ?? 0} finalized settlements are stored locally in this browser's IndexedDB. Clearing
-        browser data, losing this device, or storage corruption can permanently delete this data. Use{' '}
-        <strong>Backup &amp; Restore</strong> regularly to export a copy.
+        All {counts?.employees ?? 0} employees and {counts?.attendance ?? 0} attendance records are stored locally
+        in this browser's IndexedDB. Clearing browser data, losing this device, or storage corruption can
+        permanently delete this data. Use <strong>Backup &amp; Restore</strong> regularly to export a copy.
       </p>
     </div>
   );

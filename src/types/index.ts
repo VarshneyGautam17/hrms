@@ -51,8 +51,6 @@ export interface SalaryPayment {
   createdAt: string;
 }
 
-export type SettlementStatus = 'DRAFT' | 'FINALIZED';
-
 export interface SalaryCalculationSnapshot {
   monthlySalaryPaise: number;
   divisor: number;
@@ -74,24 +72,6 @@ export interface SalaryCalculationSnapshot {
   finalPayablePaise: number;
 }
 
-export interface SalarySettlement {
-  id: string;
-  employeeId: string;
-  period: string; // yyyy-MM
-  status: SettlementStatus;
-  grossPaise: number;
-  attendanceDeductionPaise: number;
-  otherDeductionPaise: number;
-  advanceRecoveryPaise: number;
-  paidPaise: number;
-  payablePaise: number;
-  carriedForwardPaise: number;
-  calculationSnapshot: SalaryCalculationSnapshot;
-  finalizedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export type SalaryDivisorMode = 'FIXED' | 'CALENDAR_DAYS';
 
 export interface AppSettings {
@@ -106,7 +86,7 @@ export interface AppMetadata {
   value: string;
 }
 
-export const DB_SCHEMA_VERSION = 4;
+export const DB_SCHEMA_VERSION = 5;
 
 export interface BackupFile {
   schemaVersion: number;
@@ -117,7 +97,6 @@ export interface BackupFile {
     attendance: AttendanceRecord[];
     advanceTransactions: AdvanceTransaction[];
     salaryPayments: SalaryPayment[];
-    salarySettlements: SalarySettlement[];
     settings: AppSettings[];
     appMetadata: AppMetadata[];
   };

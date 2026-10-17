@@ -1,13 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type {
-  Employee,
-  AttendanceRecord,
-  AdvanceTransaction,
-  SalaryPayment,
-  SalarySettlement,
-  AppSettings,
-  AppMetadata,
-} from '../types';
+import type { Employee, AttendanceRecord, AdvanceTransaction, SalaryPayment, AppSettings, AppMetadata } from '../types';
 
 export const DEFAULT_SETTINGS_ID = 'default';
 
@@ -16,7 +8,6 @@ export class HrmsDatabase extends Dexie {
   attendance!: Table<AttendanceRecord, string>;
   advanceTransactions!: Table<AdvanceTransaction, string>;
   salaryPayments!: Table<SalaryPayment, string>;
-  salarySettlements!: Table<SalarySettlement, string>;
   settings!: Table<AppSettings, string>;
   appMetadata!: Table<AppMetadata, string>;
 
@@ -132,6 +123,18 @@ export class HrmsDatabase extends Dexie {
             delete record.exitDate;
           });
       });
+
+    // Schema version 5 — "finalize settlement" removed entirely; salary is
+    // always a live calculation, never persisted/locked in.
+    this.version(5).stores({
+      employees: 'id, employeeCode, name',
+      attendance: 'id, &[employeeId+date], employeeId, date, status',
+      advanceTransactions: 'id, employeeId, date, type',
+      salaryPayments: 'id, employeeId, date, period',
+      salarySettlements: null, // drop table
+      settings: 'id',
+      appMetadata: 'key',
+    });
   }
 }
 

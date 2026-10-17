@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
-import { previewSettlement, finalizeSettlement, type SettlementPreview } from '../../services/settlementService';
+import { computeSalarySlip, type SalarySlip } from '../../services/salaryService';
 import { Button } from '../../components/ui/Button';
 import { SelectField, TextField } from '../../components/ui/Field';
-import { Badge } from '../../components/ui/Badge';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
 import { currentPeriod, previousPeriods, formatDisplayPeriod, todayISO, formatDisplayDate } from '../../utils/dates';
 
@@ -49,28 +47,25 @@ export function SalaryPage() {
       {!employees || employees.length === 0 ? (
         <p className="text-sm text-slate-500 no-print">No employees yet. Add one from the Employees section.</p>
       ) : employeeId ? (
-        <SalarySlip employeeId={employeeId} period={period} />
+        <SalarySlipView employeeId={employeeId} period={period} />
       ) : null}
     </div>
   );
 }
 
-function SalarySlip({ employeeId, period }: { employeeId: string; period: string }) {
+function SalarySlipView({ employeeId, period }: { employeeId: string; period: string }) {
   const [otherDeduction, setOtherDeduction] = useState('0');
   const [advanceDeduction, setAdvanceDeduction] = useState('');
-  const [preview, setPreview] = useState<SettlementPreview | null>(null);
+  const [slip, setSlip] = useState<SalarySlip | null>(null);
   const [loading, setLoading] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  async function loadPreview() {
+  async function loadSlip() {
     setLoading(true);
-    setMessage(null);
     try {
       const otherDeductionPaise = parseRupeeInputToPaise(otherDeduction);
       const advanceDeductionRequestedPaise = advanceDeduction.trim() === '' ? undefined : parseRupeeInputToPaise(advanceDeduction);
-      const result = await previewSettlement(employeeId, period, otherDeductionPaise, advanceDeductionRequestedPaise);
-      setPreview(result);
+      const result = await computeSalarySlip(employeeId, period, otherDeductionPaise, advanceDeductionRequestedPaise);
+      setSlip(result);
     } finally {
       setLoading(false);
     }
@@ -82,30 +77,13 @@ function SalarySlip({ employeeId, period }: { employeeId: string; period: string
   }, [employeeId, period]);
 
   useEffect(() => {
-    loadPreview();
+    loadSlip();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId, period, otherDeduction, advanceDeduction]);
 
-  async function handleFinalize() {
-    setConfirmOpen(false);
-    setLoading(true);
-    setMessage(null);
-    try {
-      const otherDeductionPaise = parseRupeeInputToPaise(otherDeduction);
-      const advanceDeductionRequestedPaise = advanceDeduction.trim() === '' ? undefined : parseRupeeInputToPaise(advanceDeduction);
-      await finalizeSettlement(employeeId, period, otherDeductionPaise, advanceDeductionRequestedPaise);
-      setMessage({ type: 'success', text: 'Salary settlement finalized successfully.' });
-      await loadPreview();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to finalize settlement.' });
-    } finally {
-      setLoading(false);
-    }
-  }
+  if (!slip) return <p className="text-sm text-slate-500 no-print">Loading…</p>;
 
-  if (!preview) return <p className="text-sm text-slate-500 no-print">Loading…</p>;
-
-  const s = preview.snapshot;
+  const s = slip.snapshot;
 
   return (
     <div className="flex flex-col gap-4">
@@ -132,12 +110,6 @@ function SalarySlip({ employeeId, period }: { employeeId: string; period: string
         />
       </div>
 
-      {message && (
-        <p className={`text-sm no-print ${message.type === 'success' ? 'text-green-700' : 'text-red-600'}`} role="status">
-          {message.text}
-        </p>
-      )}
-
       <div className="print-area mx-auto w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
         <div className="border-b border-slate-200 pb-3 text-center">
           <p className="text-lg font-semibold text-slate-900">Salary Slip</p>
@@ -146,11 +118,11 @@ function SalarySlip({ employeeId, period }: { employeeId: string; period: string
 
         <dl className="mt-4 grid grid-cols-2 gap-y-1.5 text-sm">
           <dt className="text-slate-500">Employee Name</dt>
-          <dd className="text-right font-medium text-slate-900">{preview.employee.name}</dd>
+          <dd className="text-right font-medium text-slate-900">{slip.employee.name}</dd>
           <dt className="text-slate-500">Employee Code</dt>
-          <dd className="text-right text-slate-900">{preview.employee.employeeCode}</dd>
+          <dd className="text-right text-slate-900">{slip.employee.employeeCode}</dd>
           <dt className="text-slate-500">Department</dt>
-          <dd className="text-right text-slate-900">{preview.employee.department ?? '—'}</dd>
+          <dd className="text-right text-slate-900">{slip.employee.department ?? '—'}</dd>
           <dt className="text-slate-500">Attendance</dt>
           <dd className="text-right text-slate-900">
             {s.presentDays} Present · {s.halfDays} Half Day · {s.unpaidAbsentDays} Absent · {s.paidWeeklyOffDays} Weekly Off
@@ -175,30 +147,16 @@ function SalarySlip({ employeeId, period }: { employeeId: string; period: string
           <span className="text-lg font-bold text-green-700">{formatPaiseAsINR(s.finalPayablePaise)}</span>
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+        <div className="mt-4 text-right text-xs text-slate-400">
           <span>Generated on {formatDisplayDate(todayISO())}</span>
-          <span>{preview.alreadyFinalized ? 'FINAL' : 'DRAFT'}</span>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 no-print">
-        <Button onClick={() => setConfirmOpen(true)} disabled={loading || preview.alreadyFinalized}>
-          {preview.alreadyFinalized ? 'Already Finalized' : 'Finalize Settlement'}
-        </Button>
-        {preview.alreadyFinalized && <Badge tone="success">Finalized</Badge>}
-        <Button variant="secondary" onClick={() => window.print()}>
+        <Button onClick={() => window.print()} disabled={loading}>
           Print Salary Slip
         </Button>
       </div>
-
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Finalize salary settlement"
-        description={`This will finalize the salary for ${formatDisplayPeriod(period)} and record any advance recovery. This cannot be undone.`}
-        confirmLabel="Finalize"
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={handleFinalize}
-      />
     </div>
   );
 }

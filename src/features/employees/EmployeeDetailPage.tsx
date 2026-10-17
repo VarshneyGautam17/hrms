@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
 import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
-import { formatDisplayDate, formatDisplayPeriod, todayISO } from '../../utils/dates';
+import { formatDisplayDate, todayISO } from '../../utils/dates';
 import { Badge, StatusBadge } from '../../components/ui/Badge';
 import { Card, EmptyState } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -25,10 +25,6 @@ export function EmployeeDetailPage() {
   );
   const advances = useLiveQuery(
     () => (id ? db.advanceTransactions.where('employeeId').equals(id).sortBy('date') : []),
-    [id],
-  );
-  const settlements = useLiveQuery(
-    () => (id ? db.salarySettlements.where('employeeId').equals(id).sortBy('period') : []),
     [id],
   );
   const today = todayISO();
@@ -198,41 +194,15 @@ export function EmployeeDetailPage() {
         )}
       </section>
 
-      <section>
-        <h2 className="text-sm font-semibold text-slate-700">Salary Settlement History</h2>
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-slate-700">Salary Slip</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Final salary receipts are generated from the{' '}
+          View and print this employee's salary slip for any month from the{' '}
           <Link to="/salary" className="underline">
             Salary &amp; Records
           </Link>{' '}
           section.
         </p>
-        {!settlements || settlements.length === 0 ? (
-          <EmptyState title="No finalized settlements yet" />
-        ) : (
-          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Period</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Payable</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-600">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {settlements.map((s) => (
-                  <tr key={s.id}>
-                    <td className="px-4 py-2">{formatDisplayPeriod(s.period)}</td>
-                    <td className="px-4 py-2">{formatPaiseAsINR(s.payablePaise)}</td>
-                    <td className="px-4 py-2">
-                      <Badge tone="success">{s.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
     </div>
   );

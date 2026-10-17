@@ -56,7 +56,7 @@ export function DashboardPage() {
             <SummaryCard
               label="Est. Salary Payable"
               value={monthSummary ? formatPaiseAsINR(monthSummary.estimatedPayablePaise) : '—'}
-              hint="Based on current attendance; may change until finalized"
+              hint="Based on current attendance; recalculated live"
             />
           </div>
 

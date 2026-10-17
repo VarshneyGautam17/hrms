@@ -1,7 +1,7 @@
 import { db } from '../db/database';
 import { listAttendanceForDate } from '../db/repositories/attendance';
 import { listAdvancesInRange } from '../db/repositories/advances';
-import { previewSettlement } from './settlementService';
+import { computeSalarySlip } from './salaryService';
 import { todayISO, daysInPeriod } from '../utils/dates';
 
 export interface TodaySummary {
@@ -72,10 +72,10 @@ export async function getMonthSummary(period: string): Promise<MonthSummary> {
 
   for (const emp of employees) {
     try {
-      const preview = await previewSettlement(emp.id, period);
-      estimatedPayablePaise += preview.snapshot.finalPayablePaise;
-      presentDays += preview.snapshot.presentDays + 0.5 * preview.snapshot.halfDays;
-      totalMarkedDays += preview.days.filter((d) => d.source !== 'OUTSIDE_EMPLOYMENT').length;
+      const slip = await computeSalarySlip(emp.id, period);
+      estimatedPayablePaise += slip.snapshot.finalPayablePaise;
+      presentDays += slip.snapshot.presentDays + 0.5 * slip.snapshot.halfDays;
+      totalMarkedDays += slip.days.filter((d) => d.source !== 'OUTSIDE_EMPLOYMENT').length;
     } catch {
       // Employee may have been removed/changed concurrently; skip rather than fail the whole dashboard.
     }

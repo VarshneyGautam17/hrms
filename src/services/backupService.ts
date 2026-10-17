@@ -3,16 +3,14 @@ import type { BackupFile } from '../types';
 import { DB_SCHEMA_VERSION } from '../types';
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [employees, attendance, advanceTransactions, salaryPayments, salarySettlements, settings, appMetadata] =
-    await Promise.all([
-      db.employees.toArray(),
-      db.attendance.toArray(),
-      db.advanceTransactions.toArray(),
-      db.salaryPayments.toArray(),
-      db.salarySettlements.toArray(),
-      db.settings.toArray(),
-      db.appMetadata.toArray(),
-    ]);
+  const [employees, attendance, advanceTransactions, salaryPayments, settings, appMetadata] = await Promise.all([
+    db.employees.toArray(),
+    db.attendance.toArray(),
+    db.advanceTransactions.toArray(),
+    db.salaryPayments.toArray(),
+    db.settings.toArray(),
+    db.appMetadata.toArray(),
+  ]);
 
   return {
     schemaVersion: DB_SCHEMA_VERSION,
@@ -23,7 +21,6 @@ export async function exportBackup(): Promise<BackupFile> {
       attendance,
       advanceTransactions,
       salaryPayments,
-      salarySettlements,
       settings,
       appMetadata,
     },
@@ -54,15 +51,7 @@ export interface ValidationResult {
   recordCounts: Record<string, number>;
 }
 
-const REQUIRED_COLLECTIONS = [
-  'employees',
-  'attendance',
-  'advanceTransactions',
-  'salaryPayments',
-  'salarySettlements',
-  'settings',
-  'appMetadata',
-] as const;
+const REQUIRED_COLLECTIONS = ['employees', 'attendance', 'advanceTransactions', 'salaryPayments', 'settings', 'appMetadata'] as const;
 
 export function validateBackup(raw: unknown): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -129,14 +118,13 @@ export function validateBackup(raw: unknown): ValidationResult {
 export async function restoreBackup(backup: BackupFile): Promise<void> {
   await db.transaction(
     'rw',
-    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
     async () => {
       await Promise.all([
         db.employees.clear(),
         db.attendance.clear(),
         db.advanceTransactions.clear(),
         db.salaryPayments.clear(),
-        db.salarySettlements.clear(),
         db.settings.clear(),
         db.appMetadata.clear(),
       ]);
@@ -146,7 +134,6 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
         db.attendance.bulkAdd(backup.data.attendance),
         db.advanceTransactions.bulkAdd(backup.data.advanceTransactions),
         db.salaryPayments.bulkAdd(backup.data.salaryPayments),
-        db.salarySettlements.bulkAdd(backup.data.salarySettlements),
         db.settings.bulkAdd(backup.data.settings),
         db.appMetadata.bulkAdd(backup.data.appMetadata),
       ]);

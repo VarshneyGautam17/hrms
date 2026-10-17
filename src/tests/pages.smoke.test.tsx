@@ -15,14 +15,13 @@ import { SettingsPage } from '../features/settings/SettingsPage';
 async function clearAll() {
   await db.transaction(
     'rw',
-    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
     async () => {
       await Promise.all([
         db.employees.clear(),
         db.attendance.clear(),
         db.advanceTransactions.clear(),
         db.salaryPayments.clear(),
-        db.salarySettlements.clear(),
         db.settings.clear(),
         db.appMetadata.clear(),
       ]);

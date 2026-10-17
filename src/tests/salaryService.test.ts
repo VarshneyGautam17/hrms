@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '../db/database';
 import { createEmployee } from '../db/repositories/employees';
 import { setAttendanceStatus } from '../db/repositories/attendance';
-import { addAdvanceTransaction, listAdvancesForEmployee, computeOutstandingBalance } from '../db/repositories/advances';
+import { addAdvanceTransaction } from '../db/repositories/advances';
 import { updateSettings } from '../db/repositories/settings';
-import { previewSettlement, finalizeSettlement } from '../services/settlementService';
+import { computeSalarySlip } from '../services/salaryService';
 import { daysInPeriod, weekdayOf } from '../utils/dates';
 
 const PERIOD = '2026-02'; // 28 days
@@ -12,14 +12,13 @@ const PERIOD = '2026-02'; // 28 days
 async function clearAll() {
   await db.transaction(
     'rw',
-    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.settings, db.appMetadata],
     async () => {
       await Promise.all([
         db.employees.clear(),
         db.attendance.clear(),
         db.advanceTransactions.clear(),
         db.salaryPayments.clear(),
-        db.salarySettlements.clear(),
         db.settings.clear(),
         db.appMetadata.clear(),
       ]);
@@ -42,7 +41,7 @@ async function markPresentForAllDays(employeeId: string, period: string, exclude
   }
 }
 
-describe('settlementService', () => {
+describe('salaryService', () => {
   it('does not deduct salary for the fixed weekly off (every Monday)', async () => {
     const employee = await createEmployee({
       employeeCode: 'E1',
@@ -53,13 +52,13 @@ describe('settlementService', () => {
     const mondays = daysInPeriod(PERIOD).filter((d) => weekdayOf(d) === 1);
     await markPresentForAllDays(employee.id, PERIOD, mondays);
 
-    const preview = await previewSettlement(employee.id, PERIOD);
-    expect(preview.snapshot.paidWeeklyOffDays).toBe(mondays.length);
-    expect(preview.snapshot.attendanceDeductionPaise).toBe(0);
-    expect(preview.snapshot.finalPayablePaise).toBe(26_000_00);
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    expect(slip.snapshot.paidWeeklyOffDays).toBe(mondays.length);
+    expect(slip.snapshot.attendanceDeductionPaise).toBe(0);
+    expect(slip.snapshot.finalPayablePaise).toBe(26_000_00);
   });
 
-  it('prevents finalizing the same employee/period twice and does not double-recover an advance', async () => {
+  it('recovers the maximum possible advance by default', async () => {
     const employee = await createEmployee({
       employeeCode: 'E2',
       name: 'Rahul',
@@ -69,14 +68,9 @@ describe('settlementService', () => {
     await markPresentForAllDays(employee.id, PERIOD);
     await addAdvanceTransaction({ employeeId: employee.id, date: '2026-02-05', type: 'ADVANCE', amountPaise: 5_000_00 });
 
-    const first = await finalizeSettlement(employee.id, PERIOD);
-    expect(first.settlement.advanceRecoveryPaise).toBe(5_000_00);
-
-    await expect(finalizeSettlement(employee.id, PERIOD)).rejects.toThrow(/already finalized/i);
-
-    const advances = await listAdvancesForEmployee(employee.id);
-    const outstanding = computeOutstandingBalance(advances);
-    expect(outstanding).toBe(0); // recovered exactly once, not twice
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    expect(slip.snapshot.advanceRecoveredPaise).toBe(5_000_00);
+    expect(slip.snapshot.finalPayablePaise).toBe(26_000_00 - 5_000_00);
   });
 
   it('carries forward an advance balance that exceeds the amount available for recovery', async () => {
@@ -89,9 +83,9 @@ describe('settlementService', () => {
     await markPresentForAllDays(employee.id, PERIOD);
     await addAdvanceTransaction({ employeeId: employee.id, date: '2026-02-01', type: 'ADVANCE', amountPaise: 15_000_00 });
 
-    const result = await finalizeSettlement(employee.id, PERIOD);
-    expect(result.settlement.payablePaise).toBe(0);
-    expect(result.settlement.carriedForwardPaise).toBe(5_000_00);
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    expect(slip.snapshot.finalPayablePaise).toBe(0);
+    expect(slip.snapshot.advanceCarriedForwardPaise).toBe(5_000_00);
   });
 
   it('caps advance recovery to a manually requested amount instead of recovering the maximum', async () => {
@@ -104,17 +98,12 @@ describe('settlementService', () => {
     await markPresentForAllDays(employee.id, PERIOD);
     await addAdvanceTransaction({ employeeId: employee.id, date: '2026-02-01', type: 'ADVANCE', amountPaise: 10_000_00 });
 
-    // Without an override, the maximum possible (10,000) would be recovered.
-    const autoPreview = await previewSettlement(employee.id, PERIOD);
-    expect(autoPreview.snapshot.advanceRecoveredPaise).toBe(10_000_00);
+    const autoSlip = await computeSalarySlip(employee.id, PERIOD);
+    expect(autoSlip.snapshot.advanceRecoveredPaise).toBe(10_000_00);
 
-    // With an explicit smaller request, only that amount is recovered.
-    const cappedPreview = await previewSettlement(employee.id, PERIOD, 0, 2_000_00);
-    expect(cappedPreview.snapshot.advanceRecoveredPaise).toBe(2_000_00);
-    expect(cappedPreview.snapshot.advanceCarriedForwardPaise).toBe(8_000_00);
-
-    const result = await finalizeSettlement(employee.id, PERIOD, 0, 2_000_00);
-    expect(result.settlement.advanceRecoveryPaise).toBe(2_000_00);
+    const cappedSlip = await computeSalarySlip(employee.id, PERIOD, 0, 2_000_00);
+    expect(cappedSlip.snapshot.advanceRecoveredPaise).toBe(2_000_00);
+    expect(cappedSlip.snapshot.advanceCarriedForwardPaise).toBe(8_000_00);
   });
 
   it('excludes days outside the employment window for a mid-month joiner', async () => {
@@ -126,8 +115,8 @@ describe('settlementService', () => {
     });
     await markPresentForAllDays(employee.id, PERIOD);
 
-    const preview = await previewSettlement(employee.id, PERIOD);
-    const outsideCount = preview.days.filter((d) => d.source === 'OUTSIDE_EMPLOYMENT').length;
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    const outsideCount = slip.days.filter((d) => d.source === 'OUTSIDE_EMPLOYMENT').length;
     expect(outsideCount).toBe(14); // Feb 1-14
   });
 });
