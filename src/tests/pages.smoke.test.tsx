@@ -7,7 +7,7 @@ import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { EmployeesPage } from '../features/employees/EmployeesPage';
 import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
-import { CalendarPage } from '../features/calendar/CalendarPage';
+import { AdvancesPage } from '../features/advances/AdvancesPage';
 import { SalaryPage } from '../features/salary/SalaryPage';
 import { BackupPage } from '../features/backup/BackupPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
@@ -15,12 +15,11 @@ import { SettingsPage } from '../features/settings/SettingsPage';
 async function clearAll() {
   await db.transaction(
     'rw',
-    [db.employees, db.attendance, db.holidays, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
     async () => {
       await Promise.all([
         db.employees.clear(),
         db.attendance.clear(),
-        db.holidays.clear(),
         db.advanceTransactions.clear(),
         db.salaryPayments.clear(),
         db.salarySettlements.clear(),
@@ -82,9 +81,9 @@ describe('page smoke tests (render without crashing)', () => {
     await waitFor(() => expect(screen.getByText('Attend Person')).toBeInTheDocument());
   });
 
-  it('Calendar (Holidays) page renders', async () => {
-    renderAt('/calendar', <CalendarPage />);
-    await waitFor(() => expect(screen.getByText('Holidays')).toBeInTheDocument());
+  it('Advances page renders', async () => {
+    renderAt('/advances', <AdvancesPage />);
+    await waitFor(() => expect(screen.getByText('Advances')).toBeInTheDocument());
   });
 
   it('Salary & Records page renders and computes a preview', async () => {

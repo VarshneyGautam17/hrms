@@ -34,13 +34,22 @@ export function SalaryPage() {
         </p>
       </div>
 
-      <SelectField label="Period" value={period} onChange={(e) => setPeriod(e.target.value)} className="w-48">
-        {periods.map((p) => (
-          <option key={p} value={p}>
-            {formatDisplayPeriod(p)}
-          </option>
-        ))}
-      </SelectField>
+      <div className="flex flex-wrap items-end gap-3">
+        <SelectField label="Period" value={period} onChange={(e) => setPeriod(e.target.value)} className="w-48">
+          {periods.map((p) => (
+            <option key={p} value={p}>
+              {formatDisplayPeriod(p)}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField label="Employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="w-56">
+          {(employees ?? []).map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name} ({e.employeeCode})
+            </option>
+          ))}
+        </SelectField>
+      </div>
 
       <AllEmployeesTable employees={employees ?? []} period={period} onSelect={setEmployeeId} selectedId={employeeId} />
 
@@ -203,6 +212,7 @@ function ExportActions({ employees, period }: { employees: Employee[]; period: s
 
 function EmployeeSettlementPanel({ employeeId, period }: { employeeId: string; period: string }) {
   const [otherDeduction, setOtherDeduction] = useState('0');
+  const [advanceDeduction, setAdvanceDeduction] = useState('');
   const [preview, setPreview] = useState<SettlementPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -213,12 +223,18 @@ function EmployeeSettlementPanel({ employeeId, period }: { employeeId: string; p
     setMessage(null);
     try {
       const otherDeductionPaise = parseRupeeInputToPaise(otherDeduction);
-      const result = await previewSettlement(employeeId, period, otherDeductionPaise);
+      const advanceDeductionRequestedPaise = advanceDeduction.trim() === '' ? undefined : parseRupeeInputToPaise(advanceDeduction);
+      const result = await previewSettlement(employeeId, period, otherDeductionPaise, advanceDeductionRequestedPaise);
       setPreview(result);
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    setAdvanceDeduction('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId, period]);
 
   useEffect(() => {
     loadPreview();
@@ -231,7 +247,8 @@ function EmployeeSettlementPanel({ employeeId, period }: { employeeId: string; p
     setMessage(null);
     try {
       const otherDeductionPaise = parseRupeeInputToPaise(otherDeduction);
-      await finalizeSettlement(employeeId, period, otherDeductionPaise);
+      const advanceDeductionRequestedPaise = advanceDeduction.trim() === '' ? undefined : parseRupeeInputToPaise(advanceDeduction);
+      await finalizeSettlement(employeeId, period, otherDeductionPaise, advanceDeductionRequestedPaise);
       setMessage({ type: 'success', text: 'Salary settlement finalized successfully.' });
       await loadPreview();
     } catch (err) {
@@ -263,6 +280,16 @@ function EmployeeSettlementPanel({ employeeId, period }: { employeeId: string; p
           className="w-40"
           hint="Manual, authorized deduction for this period"
         />
+        <TextField
+          label="Advance Deduction This Month (₹)"
+          type="number"
+          min="0"
+          step="0.01"
+          value={advanceDeduction}
+          onChange={(e) => setAdvanceDeduction(e.target.value)}
+          className="w-56"
+          hint={`Outstanding: ${formatPaiseAsINR(preview.snapshot.outstandingAdvanceBeforePaise)}. Leave blank to recover the maximum possible.`}
+        />
         <Button onClick={loadPreview} variant="secondary" disabled={loading}>
           Recalculate
         </Button>
@@ -274,7 +301,7 @@ function EmployeeSettlementPanel({ employeeId, period }: { employeeId: string; p
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card>
           <p className="text-xs uppercase text-slate-500">Present</p>
           <p className="text-lg font-semibold">{preview.snapshot.presentDays}</p>
@@ -286,10 +313,6 @@ function EmployeeSettlementPanel({ employeeId, period }: { employeeId: string; p
         <Card>
           <p className="text-xs uppercase text-slate-500">Absent</p>
           <p className="text-lg font-semibold">{preview.snapshot.unpaidAbsentDays}</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase text-slate-500">Paid Holidays</p>
-          <p className="text-lg font-semibold">{preview.snapshot.paidHolidayDays}</p>
         </Card>
         <Card>
           <p className="text-xs uppercase text-slate-500">Paid Weekly Offs</p>

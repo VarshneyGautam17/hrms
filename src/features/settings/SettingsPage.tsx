@@ -6,8 +6,6 @@ import { Button } from '../../components/ui/Button';
 import { TextField, SelectField } from '../../components/ui/Field';
 import type { AppSettings, SalaryDivisorMode } from '../../types';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 export function SettingsPage() {
   const existing = useLiveQuery(() => getSettings(), []);
   const [form, setForm] = useState<AppSettings | null>(null);
@@ -18,17 +16,6 @@ export function SettingsPage() {
   }, [existing, form]);
 
   if (!form) return <p className="text-sm text-slate-500">Loading…</p>;
-
-  function toggleWeeklyOff(day: number) {
-    setForm((prev) => {
-      if (!prev) return prev;
-      const has = prev.weeklyOffDays.includes(day);
-      return {
-        ...prev,
-        weeklyOffDays: has ? prev.weeklyOffDays.filter((d) => d !== day) : [...prev.weeklyOffDays, day].sort(),
-      };
-    });
-  }
 
   async function handleSave() {
     if (!form) return;
@@ -68,23 +55,8 @@ export function SettingsPage() {
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">Weekly Off Days</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {WEEKDAYS.map((label, idx) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => toggleWeeklyOff(idx)}
-              className={`rounded-md border px-3 py-1.5 text-sm ${
-                form.weeklyOffDays.includes(idx)
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-300 bg-white text-slate-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <h2 className="text-sm font-semibold text-slate-700">Weekly Off</h2>
+        <p className="mt-1 text-sm text-slate-500">Every Monday is a fixed paid weekly off for all employees.</p>
       </div>
 
       <p className="text-xs text-slate-500">

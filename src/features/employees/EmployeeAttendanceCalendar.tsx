@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getSettings } from '../../db/repositories/settings';
-import { listHolidaysInRange } from '../../db/repositories/holidays';
 import { listAttendanceForEmployeeInRange } from '../../db/repositories/attendance';
 import { summarizeAttendanceForEmployee, type DayClassification } from '../../services/attendanceSummary';
 import { currentPeriod, previousPeriods, periodToDate, formatDisplayPeriod, daysInPeriod } from '../../utils/dates';
@@ -11,7 +9,6 @@ const LEGEND: { label: string; className: string }[] = [
   { label: 'Present', className: 'bg-green-500' },
   { label: 'Half Day', className: 'bg-amber-500' },
   { label: 'Absent', className: 'bg-red-500' },
-  { label: 'Holiday', className: 'bg-purple-400' },
   { label: 'Weekly Off', className: 'bg-slate-300' },
   { label: 'Not marked', className: 'bg-slate-100 border border-slate-200' },
 ];
@@ -20,7 +17,6 @@ const dayCellClass: Record<string, string> = {
   PRESENT: 'bg-green-500 text-white',
   HALF_DAY: 'bg-amber-500 text-white',
   ABSENT: 'bg-red-500 text-white',
-  HOLIDAY: 'bg-purple-400 text-white',
   WEEKLY_OFF: 'bg-slate-300 text-slate-700',
   OUTSIDE_EMPLOYMENT: 'bg-transparent text-slate-300',
 };
@@ -28,7 +24,6 @@ const dayCellClass: Record<string, string> = {
 /** Shows the last 3 months (current + 2 previous) as day-by-day attendance calendars. */
 export function EmployeeAttendanceCalendar({ employee }: { employee: Employee }) {
   const periods = useMemo(() => previousPeriods(3, currentPeriod()), []);
-  const settings = useLiveQuery(() => getSettings(), []);
 
   const firstDate = daysInPeriod(periods[periods.length - 1])[0];
   const lastDate = daysInPeriod(periods[0]).slice(-1)[0];
@@ -37,9 +32,8 @@ export function EmployeeAttendanceCalendar({ employee }: { employee: Employee })
     () => listAttendanceForEmployeeInRange(employee.id, firstDate, lastDate),
     [employee.id, firstDate, lastDate],
   );
-  const holidays = useLiveQuery(() => listHolidaysInRange(firstDate, lastDate), [firstDate, lastDate]);
 
-  if (!settings || !attendance || !holidays) return <p className="text-sm text-slate-500">Loading calendar…</p>;
+  if (!attendance) return <p className="text-sm text-slate-500">Loading calendar…</p>;
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,7 +50,7 @@ export function EmployeeAttendanceCalendar({ employee }: { employee: Employee })
           .slice()
           .reverse()
           .map((period) => {
-            const { days } = summarizeAttendanceForEmployee(employee, period, attendance, holidays, settings);
+            const { days } = summarizeAttendanceForEmployee(employee, period, attendance);
             return <MonthGrid key={period} period={period} days={days} />;
           })}
       </div>

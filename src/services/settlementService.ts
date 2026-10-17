@@ -1,7 +1,6 @@
 import { db } from '../db/database';
 import { getEmployee } from '../db/repositories/employees';
 import { listAttendanceForEmployeeInRange } from '../db/repositories/attendance';
-import { listHolidaysInRange } from '../db/repositories/holidays';
 import { listAdvancesForEmployee, computeOutstandingBalance, addAdvanceTransaction } from '../db/repositories/advances';
 import { listPaymentsForEmployeePeriod, sumPayments } from '../db/repositories/payments';
 import { getSettlement } from '../db/repositories/settlements';
@@ -25,21 +24,21 @@ async function computePreview(
   period: string,
   settings: AppSettings,
   otherDeductionPaise: number,
+  advanceDeductionRequestedPaise?: number,
 ): Promise<SettlementPreview> {
   const employee = await getEmployee(employeeId);
   if (!employee) throw new Error('Employee not found.');
 
   const [firstDate, lastDate] = [daysInPeriod(period)[0], daysInPeriod(period).slice(-1)[0]];
 
-  const [attendance, holidays, advances, payments, existingSettlement] = await Promise.all([
+  const [attendance, advances, payments, existingSettlement] = await Promise.all([
     listAttendanceForEmployeeInRange(employeeId, firstDate, lastDate),
-    listHolidaysInRange(firstDate, lastDate),
     listAdvancesForEmployee(employeeId),
     listPaymentsForEmployeePeriod(employeeId, period),
     getSettlement(employeeId, period),
   ]);
 
-  const { days, counts } = summarizeAttendanceForEmployee(employee, period, attendance, holidays, settings);
+  const { days, counts } = summarizeAttendanceForEmployee(employee, period, attendance);
 
   const divisor = settings.salaryDivisorMode === 'FIXED' ? settings.fixedDivisor : totalDaysInPeriod(period);
 
@@ -53,11 +52,11 @@ async function computePreview(
     presentDays: counts.presentDays,
     halfDays: counts.halfDays,
     unpaidAbsentDays: counts.unpaidAbsentDays,
-    paidHolidayDays: counts.paidHolidayDays,
     paidWeeklyOffDays: counts.paidWeeklyOffDays,
     otherDeductionPaise,
     alreadyPaidPaise: sumPayments(payments),
     outstandingAdvanceBeforePaise: outstandingBeforePaise,
+    advanceDeductionRequestedPaise,
   });
 
   return {
@@ -73,9 +72,10 @@ export async function previewSettlement(
   employeeId: string,
   period: string,
   otherDeductionPaise = 0,
+  advanceDeductionRequestedPaise?: number,
 ): Promise<SettlementPreview> {
   const settings = await getSettings();
-  return computePreview(employeeId, period, settings, otherDeductionPaise);
+  return computePreview(employeeId, period, settings, otherDeductionPaise, advanceDeductionRequestedPaise);
 }
 
 export interface FinalizeResult {
@@ -93,19 +93,20 @@ export async function finalizeSettlement(
   employeeId: string,
   period: string,
   otherDeductionPaise = 0,
+  advanceDeductionRequestedPaise?: number,
 ): Promise<FinalizeResult> {
   const settings = await getSettings();
 
   return db.transaction(
     'rw',
-    [db.employees, db.attendance, db.holidays, db.advanceTransactions, db.salaryPayments, db.salarySettlements],
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.salarySettlements],
     async () => {
       const existing = await getSettlement(employeeId, period);
       if (existing?.status === 'FINALIZED') {
         throw new Error(`Salary for this employee is already finalized for ${period}.`);
       }
 
-      const preview = await computePreview(employeeId, period, settings, otherDeductionPaise);
+      const preview = await computePreview(employeeId, period, settings, otherDeductionPaise, advanceDeductionRequestedPaise);
 
       if (preview.snapshot.advanceRecoveredPaise > 0) {
         await addAdvanceTransaction({

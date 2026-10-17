@@ -3,11 +3,10 @@ import type { BackupFile } from '../types';
 import { DB_SCHEMA_VERSION } from '../types';
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [employees, attendance, holidays, advanceTransactions, salaryPayments, salarySettlements, settings, appMetadata] =
+  const [employees, attendance, advanceTransactions, salaryPayments, salarySettlements, settings, appMetadata] =
     await Promise.all([
       db.employees.toArray(),
       db.attendance.toArray(),
-      db.holidays.toArray(),
       db.advanceTransactions.toArray(),
       db.salaryPayments.toArray(),
       db.salarySettlements.toArray(),
@@ -22,7 +21,6 @@ export async function exportBackup(): Promise<BackupFile> {
     data: {
       employees,
       attendance,
-      holidays,
       advanceTransactions,
       salaryPayments,
       salarySettlements,
@@ -59,7 +57,6 @@ export interface ValidationResult {
 const REQUIRED_COLLECTIONS = [
   'employees',
   'attendance',
-  'holidays',
   'advanceTransactions',
   'salaryPayments',
   'salarySettlements',
@@ -132,21 +129,11 @@ export function validateBackup(raw: unknown): ValidationResult {
 export async function restoreBackup(backup: BackupFile): Promise<void> {
   await db.transaction(
     'rw',
-    [
-      db.employees,
-      db.attendance,
-      db.holidays,
-      db.advanceTransactions,
-      db.salaryPayments,
-      db.salarySettlements,
-      db.settings,
-      db.appMetadata,
-    ],
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
     async () => {
       await Promise.all([
         db.employees.clear(),
         db.attendance.clear(),
-        db.holidays.clear(),
         db.advanceTransactions.clear(),
         db.salaryPayments.clear(),
         db.salarySettlements.clear(),
@@ -157,7 +144,6 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
       await Promise.all([
         db.employees.bulkAdd(backup.data.employees),
         db.attendance.bulkAdd(backup.data.attendance),
-        db.holidays.bulkAdd(backup.data.holidays),
         db.advanceTransactions.bulkAdd(backup.data.advanceTransactions),
         db.salaryPayments.bulkAdd(backup.data.salaryPayments),
         db.salarySettlements.bulkAdd(backup.data.salarySettlements),

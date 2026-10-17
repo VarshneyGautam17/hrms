@@ -20,8 +20,8 @@ export interface Employee {
 /** The only three states an employee's day can be marked as. */
 export type MarkedAttendanceStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT';
 
-/** Full set of day statuses, including the two that are derived automatically (never set by hand). */
-export type AttendanceStatus = MarkedAttendanceStatus | 'HOLIDAY' | 'WEEKLY_OFF';
+/** Full set of day statuses, including the one that is derived automatically (never set by hand). */
+export type AttendanceStatus = MarkedAttendanceStatus | 'WEEKLY_OFF';
 
 export interface AttendanceRecord {
   id: string;
@@ -30,16 +30,6 @@ export interface AttendanceRecord {
   status: MarkedAttendanceStatus;
   notes: string | null;
   updatedAt: string;
-}
-
-export type HolidayType = 'HOLIDAY';
-
-export interface Holiday {
-  id: string;
-  date: string; // ISO date
-  name: string;
-  type: HolidayType;
-  paid: boolean;
 }
 
 export type AdvanceTransactionType = 'ADVANCE' | 'REPAYMENT';
@@ -74,7 +64,6 @@ export interface SalaryCalculationSnapshot {
   presentDays: number;
   halfDays: number;
   unpaidAbsentDays: number;
-  paidHolidayDays: number;
   paidWeeklyOffDays: number;
   unpaidDayEquivalents: number;
   dailyRatePaise: number;
@@ -113,7 +102,6 @@ export interface AppSettings {
   id: string; // singleton 'default'
   salaryDivisorMode: SalaryDivisorMode;
   fixedDivisor: number;
-  weeklyOffDays: number[]; // 0 = Sunday ... 6 = Saturday
   updatedAt: string;
 }
 
@@ -122,7 +110,7 @@ export interface AppMetadata {
   value: string;
 }
 
-export const DB_SCHEMA_VERSION = 2;
+export const DB_SCHEMA_VERSION = 3;
 
 export interface BackupFile {
   schemaVersion: number;
@@ -131,7 +119,6 @@ export interface BackupFile {
   data: {
     employees: Employee[];
     attendance: AttendanceRecord[];
-    holidays: Holiday[];
     advanceTransactions: AdvanceTransaction[];
     salaryPayments: SalaryPayment[];
     salarySettlements: SalarySettlement[];

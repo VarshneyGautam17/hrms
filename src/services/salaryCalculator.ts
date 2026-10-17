@@ -7,7 +7,6 @@ export interface SalaryCalculationInput {
   presentDays: number;
   halfDays: number;
   unpaidAbsentDays: number;
-  paidHolidayDays: number;
   paidWeeklyOffDays: number;
   /** Other authorized deductions (e.g. manual adjustments), in paise. */
   otherDeductionPaise: number;
@@ -15,6 +14,12 @@ export interface SalaryCalculationInput {
   alreadyPaidPaise: number;
   /** Outstanding advance balance eligible for recovery this period, in paise. */
   outstandingAdvanceBeforePaise: number;
+  /**
+   * How much of the outstanding advance to deduct this period, in paise.
+   * Omit to automatically recover the maximum possible (the old default
+   * behavior). When given, it caps recovery even if more could be recovered.
+   */
+  advanceDeductionRequestedPaise?: number;
 }
 
 /**
@@ -37,7 +42,9 @@ export function calculateSalary(input: SalaryCalculationInput): SalaryCalculatio
   );
 
   const outstanding = Math.max(0, input.outstandingAdvanceBeforePaise);
-  const advanceRecoveredPaise = Math.min(outstanding, availableForRecoveryPaise);
+  const requestedCap =
+    input.advanceDeductionRequestedPaise === undefined ? Infinity : Math.max(0, input.advanceDeductionRequestedPaise);
+  const advanceRecoveredPaise = Math.min(outstanding, availableForRecoveryPaise, requestedCap);
 
   const finalPayablePaise = availableForRecoveryPaise - advanceRecoveredPaise;
   const advanceCarriedForwardPaise = outstanding - advanceRecoveredPaise;
@@ -49,7 +56,6 @@ export function calculateSalary(input: SalaryCalculationInput): SalaryCalculatio
     presentDays: input.presentDays,
     halfDays: input.halfDays,
     unpaidAbsentDays: input.unpaidAbsentDays,
-    paidHolidayDays: input.paidHolidayDays,
     paidWeeklyOffDays: input.paidWeeklyOffDays,
     unpaidDayEquivalents,
     dailyRatePaise,

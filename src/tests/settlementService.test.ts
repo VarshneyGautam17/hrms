@@ -2,23 +2,21 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '../db/database';
 import { createEmployee } from '../db/repositories/employees';
 import { setAttendanceStatus } from '../db/repositories/attendance';
-import { addHoliday } from '../db/repositories/holidays';
 import { addAdvanceTransaction, listAdvancesForEmployee, computeOutstandingBalance } from '../db/repositories/advances';
 import { updateSettings } from '../db/repositories/settings';
 import { previewSettlement, finalizeSettlement } from '../services/settlementService';
-import { daysInPeriod } from '../utils/dates';
+import { daysInPeriod, weekdayOf } from '../utils/dates';
 
-const PERIOD = '2026-02'; // 28 days, no weekly-off edge cases to keep math simple... actually has Sundays
+const PERIOD = '2026-02'; // 28 days
 
 async function clearAll() {
   await db.transaction(
     'rw',
-    [db.employees, db.attendance, db.holidays, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
+    [db.employees, db.attendance, db.advanceTransactions, db.salaryPayments, db.salarySettlements, db.settings, db.appMetadata],
     async () => {
       await Promise.all([
         db.employees.clear(),
         db.attendance.clear(),
-        db.holidays.clear(),
         db.advanceTransactions.clear(),
         db.salaryPayments.clear(),
         db.salarySettlements.clear(),
@@ -34,7 +32,6 @@ beforeEach(async () => {
   await updateSettings({
     salaryDivisorMode: 'FIXED',
     fixedDivisor: 26,
-    weeklyOffDays: [0],
   });
 });
 
@@ -46,18 +43,18 @@ async function markPresentForAllDays(employeeId: string, period: string, exclude
 }
 
 describe('settlementService', () => {
-  it('does not deduct salary for paid holidays', async () => {
+  it('does not deduct salary for the fixed weekly off (every Monday)', async () => {
     const employee = await createEmployee({
       employeeCode: 'E1',
       name: 'Asha',
       joiningDate: '2026-01-01',
       monthlySalaryPaise: 26_000_00,
     });
-    await addHoliday({ date: '2026-02-16', name: 'Festival', paid: true });
-    await markPresentForAllDays(employee.id, PERIOD, ['2026-02-16']);
+    const mondays = daysInPeriod(PERIOD).filter((d) => weekdayOf(d) === 1);
+    await markPresentForAllDays(employee.id, PERIOD, mondays);
 
     const preview = await previewSettlement(employee.id, PERIOD);
-    expect(preview.snapshot.paidHolidayDays).toBeGreaterThanOrEqual(1);
+    expect(preview.snapshot.paidWeeklyOffDays).toBe(mondays.length);
     expect(preview.snapshot.attendanceDeductionPaise).toBe(0);
     expect(preview.snapshot.finalPayablePaise).toBe(26_000_00);
   });
@@ -95,6 +92,29 @@ describe('settlementService', () => {
     const result = await finalizeSettlement(employee.id, PERIOD);
     expect(result.settlement.payablePaise).toBe(0);
     expect(result.settlement.carriedForwardPaise).toBe(5_000_00);
+  });
+
+  it('caps advance recovery to a manually requested amount instead of recovering the maximum', async () => {
+    const employee = await createEmployee({
+      employeeCode: 'E5',
+      name: 'Deepak',
+      joiningDate: '2026-01-01',
+      monthlySalaryPaise: 26_000_00,
+    });
+    await markPresentForAllDays(employee.id, PERIOD);
+    await addAdvanceTransaction({ employeeId: employee.id, date: '2026-02-01', type: 'ADVANCE', amountPaise: 10_000_00 });
+
+    // Without an override, the maximum possible (10,000) would be recovered.
+    const autoPreview = await previewSettlement(employee.id, PERIOD);
+    expect(autoPreview.snapshot.advanceRecoveredPaise).toBe(10_000_00);
+
+    // With an explicit smaller request, only that amount is recovered.
+    const cappedPreview = await previewSettlement(employee.id, PERIOD, 0, 2_000_00);
+    expect(cappedPreview.snapshot.advanceRecoveredPaise).toBe(2_000_00);
+    expect(cappedPreview.snapshot.advanceCarriedForwardPaise).toBe(8_000_00);
+
+    const result = await finalizeSettlement(employee.id, PERIOD, 0, 2_000_00);
+    expect(result.settlement.advanceRecoveryPaise).toBe(2_000_00);
   });
 
   it('excludes days outside the employment window for a mid-month joiner', async () => {

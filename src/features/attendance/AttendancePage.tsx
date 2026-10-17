@@ -1,21 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
-import { getSettings } from '../../db/repositories/settings';
 import { setAttendanceStatus } from '../../db/repositories/attendance';
-import { getHolidayByDate } from '../../db/repositories/holidays';
 import { AttendanceStatusButtons } from './AttendanceStatusButtons';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/Field';
-import { todayISO, weekdayOf } from '../../utils/dates';
+import { todayISO, weekdayOf, isWeeklyOffDay } from '../../utils/dates';
 import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
 
 export function AttendancePage() {
   const [date, setDate] = useState(todayISO());
-  const settings = useLiveQuery(() => getSettings(), []);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const employees = useLiveQuery(() => db.employees.where('status').equals('ACTIVE').sortBy('name'), []);
   const dayAttendance = useLiveQuery(() => db.attendance.where('date').equals(date).toArray(), [date]);
-  const holiday = useLiveQuery(() => getHolidayByDate(date), [date]);
 
   const attendanceByEmployee = useMemo(() => {
     const map = new Map<string, AttendanceRecord>();
@@ -23,9 +21,19 @@ export function AttendancePage() {
     return map;
   }, [dayAttendance]);
 
-  if (!settings || !employees) return <p className="text-sm text-slate-500">Loading…</p>;
+  if (!employees) return <p className="text-sm text-slate-500">Loading…</p>;
 
-  const isWeeklyOff = settings.weeklyOffDays.includes(weekdayOf(date));
+  const isWeeklyOff = isWeeklyOffDay(weekdayOf(date));
+
+  async function markAll(status: MarkedAttendanceStatus) {
+    if (!employees || employees.length === 0) return;
+    setBulkBusy(true);
+    try {
+      await Promise.all(employees.map((emp) => setAttendanceStatus(emp.id, date, status)));
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,12 +45,19 @@ export function AttendancePage() {
         <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
       </div>
 
-      {holiday && (
-        <Badge tone="warning">
-          {holiday.name} ({holiday.paid ? 'Paid Holiday' : 'Unpaid Holiday'})
-        </Badge>
+      {isWeeklyOff && <Badge>Weekly Off (Monday)</Badge>}
+
+      {employees.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3">
+          <span className="text-sm font-medium text-slate-700">Bulk mark for all employees:</span>
+          <Button variant="secondary" disabled={bulkBusy} onClick={() => markAll('PRESENT')}>
+            Mark All Present
+          </Button>
+          <Button variant="secondary" disabled={bulkBusy} onClick={() => markAll('ABSENT')}>
+            Mark All Absent
+          </Button>
+        </div>
       )}
-      {!holiday && isWeeklyOff && <Badge>Weekly Off</Badge>}
 
       {employees.length === 0 ? (
         <p className="text-sm text-slate-500">No active employees yet. Add employees first.</p>

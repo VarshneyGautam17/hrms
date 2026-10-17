@@ -2,7 +2,6 @@ import Dexie, { type Table } from 'dexie';
 import type {
   Employee,
   AttendanceRecord,
-  Holiday,
   AdvanceTransaction,
   SalaryPayment,
   SalarySettlement,
@@ -15,7 +14,6 @@ export const DEFAULT_SETTINGS_ID = 'default';
 export class HrmsDatabase extends Dexie {
   employees!: Table<Employee, string>;
   attendance!: Table<AttendanceRecord, string>;
-  holidays!: Table<Holiday, string>;
   advanceTransactions!: Table<AdvanceTransaction, string>;
   salaryPayments!: Table<SalaryPayment, string>;
   salarySettlements!: Table<SalarySettlement, string>;
@@ -90,6 +88,28 @@ export class HrmsDatabase extends Dexie {
             delete record.lateAffectsStatus;
           });
       });
+
+    // Schema version 3 — holidays removed entirely; weekly off is now a fixed
+    // rule (every Monday) instead of a configurable setting.
+    this.version(3)
+      .stores({
+        employees: 'id, employeeCode, name, status',
+        attendance: 'id, &[employeeId+date], employeeId, date, status',
+        holidays: null, // drop table
+        advanceTransactions: 'id, employeeId, date, type',
+        salaryPayments: 'id, employeeId, date, period',
+        salarySettlements: 'id, &[employeeId+period], employeeId, period, status',
+        settings: 'id',
+        appMetadata: 'key',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((record: Record<string, unknown>) => {
+            delete record.weeklyOffDays;
+          });
+      });
   }
 }
 
@@ -100,7 +120,6 @@ export function createDefaultSettings(): AppSettings {
     id: DEFAULT_SETTINGS_ID,
     salaryDivisorMode: 'FIXED',
     fixedDivisor: 26,
-    weeklyOffDays: [0],
     updatedAt: new Date().toISOString(),
   };
 }

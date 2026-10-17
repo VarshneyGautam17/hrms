@@ -1,7 +1,7 @@
-import type { AttendanceRecord, AttendanceStatus, Employee, Holiday, AppSettings } from '../types';
-import { daysInPeriod, weekdayOf } from '../utils/dates';
+import type { AttendanceRecord, AttendanceStatus, Employee } from '../types';
+import { daysInPeriod, weekdayOf, isWeeklyOffDay } from '../utils/dates';
 
-export type DaySource = 'ATTENDANCE' | 'HOLIDAY' | 'WEEKLY_OFF' | 'NOT_MARKED' | 'OUTSIDE_EMPLOYMENT';
+export type DaySource = 'ATTENDANCE' | 'WEEKLY_OFF' | 'NOT_MARKED' | 'OUTSIDE_EMPLOYMENT';
 
 export interface DayClassification {
   date: string;
@@ -14,8 +14,6 @@ export interface AttendanceSummaryCounts {
   presentDays: number;
   halfDays: number;
   unpaidAbsentDays: number;
-  paidHolidayDays: number;
-  unpaidHolidayDays: number;
   paidWeeklyOffDays: number;
 }
 
@@ -29,29 +27,24 @@ function emptyCounts(): AttendanceSummaryCounts {
     presentDays: 0,
     halfDays: 0,
     unpaidAbsentDays: 0,
-    paidHolidayDays: 0,
-    unpaidHolidayDays: 0,
     paidWeeklyOffDays: 0,
   };
 }
 
 /**
  * Classifies every calendar day of a period for one employee, combining
- * explicit attendance marks with holidays and weekly offs. Priority order:
- * explicit attendance mark > holiday > weekly off > not marked (treated as
- * unpaid absent). Employment window (joining/exit date) is respected so
- * mid-month joiners/leavers are not penalized for days outside their
- * employment.
+ * explicit attendance marks with the fixed weekly off (every Monday).
+ * Priority order: explicit attendance mark > weekly off > not marked
+ * (treated as unpaid absent). Employment window (joining/exit date) is
+ * respected so mid-month joiners/leavers are not penalized for days outside
+ * their employment.
  */
 export function summarizeAttendanceForEmployee(
   employee: Employee,
   period: string,
   attendanceRecords: AttendanceRecord[],
-  holidays: Holiday[],
-  settings: Pick<AppSettings, 'weeklyOffDays'>,
 ): AttendanceSummaryResult {
   const attendanceByDate = new Map(attendanceRecords.map((a) => [a.date, a]));
-  const holidayByDate = new Map(holidays.map((h) => [h.date, h]));
 
   const days: DayClassification[] = [];
   const counts = emptyCounts();
@@ -69,15 +62,7 @@ export function summarizeAttendanceForEmployee(
       continue;
     }
 
-    const holiday = holidayByDate.get(date);
-    if (holiday) {
-      days.push({ date, source: 'HOLIDAY', status: 'HOLIDAY', paid: holiday.paid });
-      if (holiday.paid) counts.paidHolidayDays += 1;
-      else counts.unpaidHolidayDays += 1;
-      continue;
-    }
-
-    if (settings.weeklyOffDays.includes(weekdayOf(date))) {
+    if (isWeeklyOffDay(weekdayOf(date))) {
       days.push({ date, source: 'WEEKLY_OFF', status: 'WEEKLY_OFF', paid: true });
       counts.paidWeeklyOffDays += 1;
       continue;

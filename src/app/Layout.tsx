@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/employees', label: 'Employees' },
   { to: '/attendance', label: 'Attendance' },
-  { to: '/calendar', label: 'Holidays' },
+  { to: '/advances', label: 'Advances' },
   { to: '/salary', label: 'Salary & Records' },
   { to: '/backup', label: 'Backup & Restore' },
   { to: '/settings', label: 'Settings' },

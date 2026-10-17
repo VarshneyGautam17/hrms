@@ -12,6 +12,13 @@ import {
 export const DATE_FMT = 'yyyy-MM-dd';
 export const PERIOD_FMT = 'yyyy-MM';
 
+/** Company-wide fixed weekly off (0 = Sunday ... 6 = Saturday). Every Monday is off. */
+export const WEEKLY_OFF_WEEKDAY = 1;
+
+export function isWeeklyOffDay(weekday: number): boolean {
+  return weekday === WEEKLY_OFF_WEEKDAY;
+}
+
 export function todayISO(): string {
   return format(new Date(), DATE_FMT);
 }

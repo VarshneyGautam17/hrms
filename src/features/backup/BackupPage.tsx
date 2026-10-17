@@ -95,8 +95,8 @@ export function BackupPage() {
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-700">Export Backup</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Downloads a single JSON file containing all employees, attendance, holidays, leave, advances, payments,
-          settlements and settings.
+          Downloads a single JSON file containing all employees, attendance, advances, payments, settlements and
+          settings.
         </p>
         <Button className="mt-3" onClick={handleExport} disabled={exporting}>
           {exporting ? 'Exporting…' : 'Export Backup (JSON)'}
