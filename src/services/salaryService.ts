@@ -34,9 +34,10 @@ export async function computeSalarySlip(employeeId: string, period: string, othe
     listPaymentsForEmployeePeriod(employeeId, period),
   ]);
 
-  const { days, counts } = summarizeAttendanceForEmployee(employee, period, attendance);
+  const { days, counts } = summarizeAttendanceForEmployee(employee, period, attendance, settings.weeklyOffDay);
 
-  const divisor = settings.salaryDivisorMode === 'FIXED' ? settings.fixedDivisor : totalDaysInPeriod(period);
+  // Salary divisor is always the actual number of days in that calendar month.
+  const divisor = totalDaysInPeriod(period);
 
   const advancesUpToPeriodEnd = advances.filter((tx) => tx.date <= lastDate);
   const outstandingBeforePaise = computeOutstandingBalance(advancesUpToPeriodEnd);

@@ -135,6 +135,29 @@ export class HrmsDatabase extends Dexie {
       settings: 'id',
       appMetadata: 'key',
     });
+
+    // Schema version 6 — weekly off day is configurable again (defaulting to
+    // Monday); salary divisor is no longer configurable, it's always the
+    // actual number of days in that calendar month.
+    this.version(6)
+      .stores({
+        employees: 'id, employeeCode, name',
+        attendance: 'id, &[employeeId+date], employeeId, date, status',
+        advanceTransactions: 'id, employeeId, date, type',
+        salaryPayments: 'id, employeeId, date, period',
+        settings: 'id',
+        appMetadata: 'key',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((record: Record<string, unknown>) => {
+            delete record.salaryDivisorMode;
+            delete record.fixedDivisor;
+            if (typeof record.weeklyOffDay !== 'number') record.weeklyOffDay = 1;
+          });
+      });
   }
 }
 
@@ -143,8 +166,7 @@ export const db = new HrmsDatabase();
 export function createDefaultSettings(): AppSettings {
   return {
     id: DEFAULT_SETTINGS_ID,
-    salaryDivisorMode: 'FIXED',
-    fixedDivisor: 26,
+    weeklyOffDay: 1, // Monday
     updatedAt: new Date().toISOString(),
   };
 }

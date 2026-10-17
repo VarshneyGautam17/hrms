@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { listAttendanceForEmployeeInRange } from '../../db/repositories/attendance';
+import { getSettings } from '../../db/repositories/settings';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
 import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
@@ -32,8 +33,10 @@ export function EmployeeCalendarModal({ employee, onClose }: Props) {
     () => listAttendanceForEmployeeInRange(employee.id, days[0], days[days.length - 1]),
     [employee.id, days[0], days[days.length - 1]],
   );
+  const settings = useLiveQuery(() => getSettings(), []);
 
-  const classification = attendance ? summarizeAttendanceForEmployee(employee, period, attendance).days : null;
+  const classification =
+    attendance && settings ? summarizeAttendanceForEmployee(employee, period, attendance, settings.weeklyOffDay).days : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onClick={onClose}>

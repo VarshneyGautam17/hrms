@@ -20,7 +20,7 @@ describe('summarizeAttendanceForEmployee', () => {
     const period = currentPeriod();
     const today = todayISO();
 
-    const { days, counts } = summarizeAttendanceForEmployee(employee, period, []);
+    const { days, counts } = summarizeAttendanceForEmployee(employee, period, [], 1);
 
     // Future Mondays are still the weekly off (that's known in advance); only non-Monday future days are "FUTURE".
     const futureDays = days.filter((d) => d.date > today && weekdayOf(d.date) !== 1);
@@ -46,7 +46,7 @@ describe('summarizeAttendanceForEmployee', () => {
       { id: 'a1', employeeId: employee.id, date: futureDate, status: 'PRESENT', notes: null, updatedAt: '2026-01-01T00:00:00.000Z' },
     ];
 
-    const { days } = summarizeAttendanceForEmployee(employee, period, records);
+    const { days } = summarizeAttendanceForEmployee(employee, period, records, 1);
     const day = days.find((d) => d.date === futureDate);
     expect(day?.status).toBe('PRESENT');
     expect(day?.source).toBe('ATTENDANCE');

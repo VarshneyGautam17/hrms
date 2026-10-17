@@ -73,12 +73,10 @@ export interface SalaryCalculationSnapshot {
   finalPayablePaise: number;
 }
 
-export type SalaryDivisorMode = 'FIXED' | 'CALENDAR_DAYS';
-
 export interface AppSettings {
   id: string; // singleton 'default'
-  salaryDivisorMode: SalaryDivisorMode;
-  fixedDivisor: number;
+  /** Which weekday is the company-wide paid weekly off, for all employees (0 = Sunday ... 6 = Saturday). */
+  weeklyOffDay: number;
   updatedAt: string;
 }
 
@@ -87,7 +85,7 @@ export interface AppMetadata {
   value: string;
 }
 
-export const DB_SCHEMA_VERSION = 5;
+export const DB_SCHEMA_VERSION = 6;
 
 export interface BackupFile {
   schemaVersion: number;

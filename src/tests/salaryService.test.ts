@@ -28,10 +28,7 @@ async function clearAll() {
 
 beforeEach(async () => {
   await clearAll();
-  await updateSettings({
-    salaryDivisorMode: 'FIXED',
-    fixedDivisor: 26,
-  });
+  await updateSettings({ weeklyOffDay: 1 });
 });
 
 async function markPresentForAllDays(employeeId: string, period: string, excludeDates: string[] = []) {

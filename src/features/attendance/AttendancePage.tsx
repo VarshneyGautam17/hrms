@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
 import { setAttendanceStatus } from '../../db/repositories/attendance';
+import { getSettings } from '../../db/repositories/settings';
 import { AttendanceStatusButtons } from './AttendanceStatusButtons';
 import { EmployeeCalendarModal } from './EmployeeCalendarModal';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { SummaryCard } from '../../components/ui/Card';
 import { TextField } from '../../components/ui/Field';
-import { todayISO, weekdayOf, isWeeklyOffDay } from '../../utils/dates';
+import { todayISO, weekdayOf, isWeeklyOffDay, WEEKDAY_LABELS } from '../../utils/dates';
 import type { AttendanceRecord, Employee, MarkedAttendanceStatus } from '../../types';
 
 export function AttendancePage() {
@@ -16,6 +17,7 @@ export function AttendancePage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [calendarEmployee, setCalendarEmployee] = useState<Employee | null>(null);
   const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
+  const settings = useLiveQuery(() => getSettings(), []);
   const dayAttendance = useLiveQuery(() => db.attendance.where('date').equals(date).toArray(), [date]);
 
   const attendanceByEmployee = useMemo(() => {
@@ -36,9 +38,9 @@ export function AttendancePage() {
     [employees, date],
   );
 
-  if (!employees) return <p className="text-sm text-slate-500">Loading…</p>;
+  if (!employees || !settings) return <p className="text-sm text-slate-500">Loading…</p>;
 
-  const isWeeklyOff = isWeeklyOffDay(weekdayOf(date));
+  const isWeeklyOff = isWeeklyOffDay(weekdayOf(date), settings.weeklyOffDay);
 
   async function markAll(status: MarkedAttendanceStatus) {
     if (visibleEmployees.length === 0) return;
@@ -65,7 +67,7 @@ export function AttendancePage() {
         <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
       </div>
 
-      {isWeeklyOff && <Badge>Weekly Off (Monday)</Badge>}
+      {isWeeklyOff && <Badge>Weekly Off ({WEEKDAY_LABELS[settings.weeklyOffDay]})</Badge>}
 
       {visibleEmployees.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3">

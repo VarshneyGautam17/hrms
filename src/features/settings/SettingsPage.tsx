@@ -3,8 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { getSettings, updateSettings } from '../../db/repositories/settings';
 import { db } from '../../db/database';
 import { Button } from '../../components/ui/Button';
-import { TextField, SelectField } from '../../components/ui/Field';
-import type { AppSettings, SalaryDivisorMode } from '../../types';
+import { WEEKDAY_LABELS } from '../../utils/dates';
+import type { AppSettings } from '../../types';
 
 export function SettingsPage() {
   const existing = useLiveQuery(() => getSettings(), []);
@@ -28,35 +28,35 @@ export function SettingsPage() {
     <div className="flex flex-col gap-4 max-w-2xl">
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500">Configure how salary is calculated for all employees.</p>
+        <p className="text-sm text-slate-500">Configure the weekly off day used for attendance and salary for all employees.</p>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">Salary Divisor</h2>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <SelectField
-            label="Divisor Mode"
-            value={form.salaryDivisorMode}
-            onChange={(e) => setForm({ ...form, salaryDivisorMode: e.target.value as SalaryDivisorMode })}
-          >
-            <option value="FIXED">Fixed divisor</option>
-            <option value="CALENDAR_DAYS">Calendar days in month</option>
-          </SelectField>
-          {form.salaryDivisorMode === 'FIXED' && (
-            <TextField
-              label="Fixed Divisor"
-              type="number"
-              min="1"
-              value={form.fixedDivisor}
-              onChange={(e) => setForm({ ...form, fixedDivisor: Number(e.target.value) })}
-            />
-          )}
+        <h2 className="text-sm font-semibold text-slate-700">Weekly Off Day</h2>
+        <p className="mt-1 text-sm text-slate-500">This day is a fixed paid weekly off for every employee.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {WEEKDAY_LABELS.map((label, idx) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setForm({ ...form, weeklyOffDay: idx })}
+              className={`rounded-md border px-3 py-1.5 text-sm ${
+                form.weeklyOffDay === idx
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">Weekly Off</h2>
-        <p className="mt-1 text-sm text-slate-500">Every Monday is a fixed paid weekly off for all employees.</p>
+        <h2 className="text-sm font-semibold text-slate-700">Salary Divisor</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Always the actual number of days in that calendar month (28–31) — not configurable.
+        </p>
       </div>
 
       <p className="text-xs text-slate-500">

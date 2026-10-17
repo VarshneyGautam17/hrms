@@ -36,7 +36,7 @@ function emptyCounts(): AttendanceSummaryCounts {
 
 /**
  * Classifies every calendar day of a period for one employee, combining
- * explicit attendance marks with the fixed weekly off (every Monday).
+ * explicit attendance marks with the company's configured weekly off day.
  * Priority order: explicit attendance mark > weekly off > future > not
  * marked. A day nobody marked is never labeled "Absent" — it gets its own
  * "Not Marked" status — but it is still unpaid in the salary math, same as
@@ -50,6 +50,7 @@ export function summarizeAttendanceForEmployee(
   employee: Employee,
   period: string,
   attendanceRecords: AttendanceRecord[],
+  weeklyOffDay: number,
 ): AttendanceSummaryResult {
   const attendanceByDate = new Map(attendanceRecords.map((a) => [a.date, a]));
   const today = todayISO();
@@ -70,7 +71,7 @@ export function summarizeAttendanceForEmployee(
       continue;
     }
 
-    if (isWeeklyOffDay(weekdayOf(date))) {
+    if (isWeeklyOffDay(weekdayOf(date), weeklyOffDay)) {
       days.push({ date, source: 'WEEKLY_OFF', status: 'WEEKLY_OFF', paid: true });
       counts.paidWeeklyOffDays += 1;
       continue;

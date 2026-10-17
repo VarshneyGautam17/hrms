@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { listAttendanceForEmployeeInRange } from '../../db/repositories/attendance';
+import { getSettings } from '../../db/repositories/settings';
 import { summarizeAttendanceForEmployee } from '../../services/attendanceSummary';
 import { ATTENDANCE_LEGEND, MonthGrid } from '../../components/calendar/MonthGrid';
 import { DayAttendancePopup } from '../../components/calendar/DayAttendancePopup';
@@ -19,8 +20,9 @@ export function EmployeeAttendanceCalendar({ employee }: { employee: Employee })
     () => listAttendanceForEmployeeInRange(employee.id, firstDate, lastDate),
     [employee.id, firstDate, lastDate],
   );
+  const settings = useLiveQuery(() => getSettings(), []);
 
-  if (!attendance) return <p className="text-sm text-slate-500">Loading calendar…</p>;
+  if (!attendance || !settings) return <p className="text-sm text-slate-500">Loading calendar…</p>;
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,7 +39,7 @@ export function EmployeeAttendanceCalendar({ employee }: { employee: Employee })
           .slice()
           .reverse()
           .map((period) => {
-            const { days } = summarizeAttendanceForEmployee(employee, period, attendance);
+            const { days } = summarizeAttendanceForEmployee(employee, period, attendance, settings.weeklyOffDay);
             return <MonthGrid key={period} period={period} days={days} onDayClick={setEditingDate} />;
           })}
       </div>
