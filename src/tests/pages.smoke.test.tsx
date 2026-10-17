@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { db } from '../db/database';
@@ -75,6 +75,19 @@ describe('page smoke tests (render without crashing)', () => {
     // "Present"/"Absent" also appear as per-row status buttons, so assert the summary card labels specifically.
     expect(screen.getAllByText('Present').some((el) => el.tagName === 'P')).toBe(true);
     expect(screen.getAllByText('Absent').some((el) => el.tagName === 'P')).toBe(true);
+  });
+
+  it('hides an employee from the attendance list for dates before they joined', async () => {
+    await createEmployee({ employeeCode: 'S8', name: 'Future Joiner', joiningDate: '2026-06-15', monthlySalaryPaise: 10000 });
+    renderAt('/attendance', <AttendancePage />);
+
+    const dateInput = await waitFor(() => screen.getByLabelText('Date'));
+    fireEvent.change(dateInput, { target: { value: '2026-06-01' } });
+    await waitFor(() => expect(screen.getByText('No employees had joined yet as of this date.')).toBeInTheDocument());
+    expect(screen.queryByText('Future Joiner')).not.toBeInTheDocument();
+
+    fireEvent.change(dateInput, { target: { value: '2026-06-15' } });
+    await waitFor(() => expect(screen.getByText('Future Joiner')).toBeInTheDocument());
   });
 
   it('Attendance page opens a per-employee calendar modal defaulting to the current month', async () => {

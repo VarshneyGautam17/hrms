@@ -30,15 +30,21 @@ export function AttendancePage() {
   );
   const absentCount = useMemo(() => (dayAttendance ?? []).filter((a) => a.status === 'ABSENT').length, [dayAttendance]);
 
+  // Only employees who had already joined on the selected date can have their attendance marked for it.
+  const visibleEmployees = useMemo(
+    () => (employees ?? []).filter((emp) => emp.joiningDate <= date),
+    [employees, date],
+  );
+
   if (!employees) return <p className="text-sm text-slate-500">Loading…</p>;
 
   const isWeeklyOff = isWeeklyOffDay(weekdayOf(date));
 
   async function markAll(status: MarkedAttendanceStatus) {
-    if (!employees || employees.length === 0) return;
+    if (visibleEmployees.length === 0) return;
     setBulkBusy(true);
     try {
-      await Promise.all(employees.map((emp) => setAttendanceStatus(emp.id, date, status)));
+      await Promise.all(visibleEmployees.map((emp) => setAttendanceStatus(emp.id, date, status)));
     } finally {
       setBulkBusy(false);
     }
@@ -61,7 +67,7 @@ export function AttendancePage() {
 
       {isWeeklyOff && <Badge>Weekly Off (Monday)</Badge>}
 
-      {employees.length > 0 && (
+      {visibleEmployees.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3">
           <span className="text-sm font-medium text-slate-700">Bulk mark for all employees:</span>
           <Button variant="secondary" disabled={bulkBusy} onClick={() => markAll('PRESENT')}>
@@ -74,7 +80,9 @@ export function AttendancePage() {
       )}
 
       {employees.length === 0 ? (
-        <p className="text-sm text-slate-500">No active employees yet. Add employees first.</p>
+        <p className="text-sm text-slate-500">No employees yet. Add employees first.</p>
+      ) : visibleEmployees.length === 0 ? (
+        <p className="text-sm text-slate-500">No employees had joined yet as of this date.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -86,7 +94,7 @@ export function AttendancePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {employees.map((emp) => (
+              {visibleEmployees.map((emp) => (
                 <AttendanceRow
                   key={emp.id}
                   employeeId={emp.id}
