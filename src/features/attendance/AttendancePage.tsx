@@ -3,16 +3,18 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
 import { setAttendanceStatus } from '../../db/repositories/attendance';
 import { AttendanceStatusButtons } from './AttendanceStatusButtons';
+import { EmployeeCalendarModal } from './EmployeeCalendarModal';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { SummaryCard } from '../../components/ui/Card';
 import { TextField } from '../../components/ui/Field';
 import { todayISO, weekdayOf, isWeeklyOffDay } from '../../utils/dates';
-import type { AttendanceRecord, MarkedAttendanceStatus } from '../../types';
+import type { AttendanceRecord, Employee, MarkedAttendanceStatus } from '../../types';
 
 export function AttendancePage() {
   const [date, setDate] = useState(todayISO());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [calendarEmployee, setCalendarEmployee] = useState<Employee | null>(null);
   const employees = useLiveQuery(() => db.employees.orderBy('name').toArray(), []);
   const dayAttendance = useLiveQuery(() => db.attendance.where('date').equals(date).toArray(), [date]);
 
@@ -91,12 +93,15 @@ export function AttendancePage() {
                   employeeName={emp.name}
                   date={date}
                   record={attendanceByEmployee.get(emp.id)}
+                  onShowCalendar={() => setCalendarEmployee(emp)}
                 />
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {calendarEmployee && <EmployeeCalendarModal employee={calendarEmployee} onClose={() => setCalendarEmployee(null)} />}
     </div>
   );
 }
@@ -106,11 +111,13 @@ function AttendanceRow({
   employeeName,
   date,
   record,
+  onShowCalendar,
 }: {
   employeeId: string;
   employeeName: string;
   date: string;
   record: AttendanceRecord | undefined;
+  onShowCalendar: () => void;
 }) {
   const [notes, setNotes] = useState(record?.notes ?? '');
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -135,7 +142,25 @@ function AttendanceRow({
 
   return (
     <tr>
-      <td className="px-3 py-2 font-medium text-slate-900">{employeeName}</td>
+      <td className="px-3 py-2 font-medium text-slate-900">
+        <div className="flex items-center gap-2">
+          {employeeName}
+          <button
+            type="button"
+            onClick={onShowCalendar}
+            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label={`View attendance calendar for ${employeeName}`}
+            title="View attendance calendar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </button>
+        </div>
+      </td>
       <td className="px-3 py-2">
         <AttendanceStatusButtons
           value={record?.status ?? null}

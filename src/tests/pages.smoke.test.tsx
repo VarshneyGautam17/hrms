@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { db } from '../db/database';
 import { createEmployee } from '../db/repositories/employees';
@@ -73,6 +74,18 @@ describe('page smoke tests (render without crashing)', () => {
     // "Present"/"Absent" also appear as per-row status buttons, so assert the summary card labels specifically.
     expect(screen.getAllByText('Present').some((el) => el.tagName === 'P')).toBe(true);
     expect(screen.getAllByText('Absent').some((el) => el.tagName === 'P')).toBe(true);
+  });
+
+  it('Attendance page opens a per-employee calendar modal defaulting to the current month', async () => {
+    await createEmployee({ employeeCode: 'S6', name: 'Calendar Person', joiningDate: '2026-01-01', monthlySalaryPaise: 10000 });
+    renderAt('/attendance', <AttendancePage />);
+    await waitFor(() => expect(screen.getByText('Calendar Person')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'View attendance calendar for Calendar Person' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous month' })).toBeInTheDocument();
   });
 
   it('Advances page renders', async () => {
