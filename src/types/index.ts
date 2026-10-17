@@ -58,6 +58,7 @@ export interface SalaryCalculationSnapshot {
   presentDays: number;
   halfDays: number;
   unpaidAbsentDays: number;
+  notMarkedDays: number;
   paidWeeklyOffDays: number;
   unpaidDayEquivalents: number;
   dailyRatePaise: number;

@@ -112,7 +112,8 @@ function SalarySlipView({ employeeId, period }: { employeeId: string; period: st
           <dd className="text-right text-slate-900">{slip.employee.department ?? '—'}</dd>
           <dt className="text-slate-500">Attendance</dt>
           <dd className="text-right text-slate-900">
-            {s.presentDays} Present · {s.halfDays} Half Day · {s.unpaidAbsentDays} Absent · {s.paidWeeklyOffDays} Weekly Off
+            {s.presentDays} Present · {s.halfDays} Half Day · {s.unpaidAbsentDays} Absent · {s.notMarkedDays} Not Marked ·{' '}
+            {s.paidWeeklyOffDays} Weekly Off
           </dd>
         </dl>
 

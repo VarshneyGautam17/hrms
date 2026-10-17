@@ -88,6 +88,26 @@ describe('salaryService', () => {
     expect(slip.snapshot.advanceCarriedForwardPaise).toBe(5_000_00);
   });
 
+  it('labels an unmarked day as "Not Marked" rather than "Absent", while still deducting it the same way', async () => {
+    const employee = await createEmployee({
+      employeeCode: 'E6',
+      name: 'Unmarked Person',
+      joiningDate: '2026-01-01',
+      monthlySalaryPaise: 26_000_00,
+    });
+    // Leave every day unmarked — no attendance records at all.
+
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    const workingDays = daysInPeriod(PERIOD).filter((d) => weekdayOf(d) !== 1).length; // excludes Mondays (weekly off)
+
+    expect(slip.snapshot.unpaidAbsentDays).toBe(0);
+    expect(slip.snapshot.notMarkedDays).toBe(workingDays);
+    expect(slip.days.filter((d) => d.status === 'NOT_MARKED')).toHaveLength(workingDays);
+    expect(slip.days.some((d) => d.status === 'ABSENT')).toBe(false);
+    // Still unpaid for those days, same deduction as if explicitly marked absent.
+    expect(slip.snapshot.attendanceDeductionPaise).toBe(Math.round(slip.snapshot.dailyRatePaise * workingDays));
+  });
+
   it('excludes days outside the employment window for a mid-month joiner', async () => {
     const employee = await createEmployee({
       employeeCode: 'E4',

@@ -6,7 +6,7 @@ export const ATTENDANCE_LEGEND: { label: string; className: string }[] = [
   { label: 'Half Day', className: 'bg-amber-500' },
   { label: 'Absent', className: 'bg-red-500' },
   { label: 'Weekly Off', className: 'bg-slate-300' },
-  { label: 'Not marked', className: 'bg-slate-100 border border-slate-200' },
+  { label: 'Not Marked', className: 'bg-slate-100 border border-slate-200' },
 ];
 
 const dayCellClass: Record<string, string> = {
@@ -14,6 +14,7 @@ const dayCellClass: Record<string, string> = {
   HALF_DAY: 'bg-amber-500 text-white',
   ABSENT: 'bg-red-500 text-white',
   WEEKLY_OFF: 'bg-slate-300 text-slate-700',
+  NOT_MARKED: 'bg-slate-100 text-slate-500 border border-slate-200',
   OUTSIDE_EMPLOYMENT: 'bg-transparent text-slate-300',
 };
 
@@ -43,7 +44,7 @@ export function MonthGrid({
         ))}
         {days.map((d) => {
           const dayNum = Number(d.date.slice(-2));
-          const title = d.source === 'OUTSIDE_EMPLOYMENT' ? 'Not employed' : d.source === 'NOT_MARKED' ? 'Not marked' : d.status;
+          const title = d.source === 'OUTSIDE_EMPLOYMENT' ? 'Not employed' : d.source === 'NOT_MARKED' ? 'Not Marked' : d.status;
           return (
             <span
               key={d.date}

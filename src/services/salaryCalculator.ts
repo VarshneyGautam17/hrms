@@ -7,6 +7,8 @@ export interface SalaryCalculationInput {
   presentDays: number;
   halfDays: number;
   unpaidAbsentDays: number;
+  /** Days nobody marked at all. Still unpaid (same as an explicit absence), tracked separately so it can be labeled distinctly from "Absent". */
+  notMarkedDays: number;
   paidWeeklyOffDays: number;
   /** Other authorized deductions (e.g. manual adjustments), in paise. */
   otherDeductionPaise: number;
@@ -24,7 +26,7 @@ export function calculateSalary(input: SalaryCalculationInput): SalaryCalculatio
   const divisor = input.divisor > 0 ? input.divisor : 1;
   const dailyRatePaise = input.monthlySalaryPaise / divisor;
 
-  const unpaidDayEquivalents = input.unpaidAbsentDays + 0.5 * input.halfDays;
+  const unpaidDayEquivalents = input.unpaidAbsentDays + input.notMarkedDays + 0.5 * input.halfDays;
 
   const attendanceDeductionPaise = Math.round(dailyRatePaise * unpaidDayEquivalents);
 
@@ -48,6 +50,7 @@ export function calculateSalary(input: SalaryCalculationInput): SalaryCalculatio
     presentDays: input.presentDays,
     halfDays: input.halfDays,
     unpaidAbsentDays: input.unpaidAbsentDays,
+    notMarkedDays: input.notMarkedDays,
     paidWeeklyOffDays: input.paidWeeklyOffDays,
     unpaidDayEquivalents,
     dailyRatePaise,

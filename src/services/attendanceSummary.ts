@@ -6,7 +6,7 @@ export type DaySource = 'ATTENDANCE' | 'WEEKLY_OFF' | 'NOT_MARKED' | 'OUTSIDE_EM
 export interface DayClassification {
   date: string;
   source: DaySource;
-  status: AttendanceStatus | 'OUTSIDE_EMPLOYMENT';
+  status: AttendanceStatus | 'OUTSIDE_EMPLOYMENT' | 'NOT_MARKED';
   paid: boolean;
 }
 
@@ -14,6 +14,8 @@ export interface AttendanceSummaryCounts {
   presentDays: number;
   halfDays: number;
   unpaidAbsentDays: number;
+  /** Days nobody marked at all — kept separate from unpaidAbsentDays so it can be labeled "Not Marked" instead of "Absent". */
+  notMarkedDays: number;
   paidWeeklyOffDays: number;
 }
 
@@ -27,6 +29,7 @@ function emptyCounts(): AttendanceSummaryCounts {
     presentDays: 0,
     halfDays: 0,
     unpaidAbsentDays: 0,
+    notMarkedDays: 0,
     paidWeeklyOffDays: 0,
   };
 }
@@ -34,10 +37,12 @@ function emptyCounts(): AttendanceSummaryCounts {
 /**
  * Classifies every calendar day of a period for one employee, combining
  * explicit attendance marks with the fixed weekly off (every Monday).
- * Priority order: explicit attendance mark > weekly off > not marked
- * (treated as unpaid absent). Days before the employee's joining date are
- * excluded so a mid-month joiner is not penalized for days before they
- * started.
+ * Priority order: explicit attendance mark > weekly off > not marked. A day
+ * nobody marked is never labeled "Absent" — it gets its own "Not Marked"
+ * status — but it is still unpaid in the salary math, same as an explicit
+ * absence, until someone marks it Present or Half Day. Days before the
+ * employee's joining date are excluded so a mid-month joiner is not
+ * penalized for days before they started.
  */
 export function summarizeAttendanceForEmployee(
   employee: Employee,
@@ -68,8 +73,8 @@ export function summarizeAttendanceForEmployee(
       continue;
     }
 
-    days.push({ date, source: 'NOT_MARKED', status: 'ABSENT', paid: false });
-    counts.unpaidAbsentDays += 1;
+    days.push({ date, source: 'NOT_MARKED', status: 'NOT_MARKED', paid: false });
+    counts.notMarkedDays += 1;
   }
 
   return { days, counts };

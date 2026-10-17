@@ -8,6 +8,7 @@ const base = {
   presentDays: 24,
   halfDays: 0,
   unpaidAbsentDays: 0,
+  notMarkedDays: 0,
   paidWeeklyOffDays: 4,
   otherDeductionPaise: 0,
   alreadyPaidPaise: 0,
@@ -87,4 +88,11 @@ describe('calculateSalary', () => {
     expect(result.dailyRatePaise).toBeCloseTo(2_600_00 / 3, 5);
   });
 
+  it('deducts for not-marked days the same as an explicit absence, but tracks them separately', () => {
+    const result = calculateSalary({ ...base, presentDays: 22, notMarkedDays: 2 });
+    expect(result.dailyRatePaise).toBe(100_000);
+    expect(result.attendanceDeductionPaise).toBe(200_000);
+    expect(result.notMarkedDays).toBe(2);
+    expect(result.unpaidAbsentDays).toBe(0);
+  });
 });

@@ -48,6 +48,7 @@ export async function computeSalarySlip(employeeId: string, period: string, othe
     presentDays: counts.presentDays,
     halfDays: counts.halfDays,
     unpaidAbsentDays: counts.unpaidAbsentDays,
+    notMarkedDays: counts.notMarkedDays,
     paidWeeklyOffDays: counts.paidWeeklyOffDays,
     otherDeductionPaise,
     alreadyPaidPaise: sumPayments(payments),
