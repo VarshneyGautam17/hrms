@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import logoUrl from '../../assets/deepak-electricals-logo.jpg';
 
 export function LoginPage() {
   const [mode, setMode] = useState<'SIGN_IN' | 'SIGN_UP'>('SIGN_IN');
@@ -37,9 +38,11 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-100 via-background to-sky-100 p-4">
       <Card className="w-full max-w-sm shadow-xl">
         <CardContent className="p-6 sm:p-8">
-          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-base font-bold text-white shadow-md">
-            DE
-          </span>
+          <img
+            src={logoUrl}
+            alt=""
+            className="mx-auto h-20 w-20 rounded-xl bg-white object-contain shadow-md ring-1 ring-border"
+          />
           <h1 className="mt-4 text-center text-lg font-semibold">Deepak Electricals</h1>
           <p className="mt-1 text-center text-sm text-muted-foreground">
             {mode === 'SIGN_IN' ? 'Sign in to access your synced data.' : 'Create your account to get started.'}

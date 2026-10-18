@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { formatPaiseAsRs } from '../utils/currency';
+// ?inline embeds the image as data: jsPDF needs the bytes, not a link to the file.
+import logoDataUrl from '../assets/deepak-electricals-logo.jpg?inline';
 import { format } from 'date-fns';
 import { formatDisplayPeriod, formatDisplayDate } from '../utils/dates';
 import type { SalarySlip } from './salaryService';
@@ -59,7 +61,7 @@ export function buildSalarySlipPdf(
   doc: jsPDF = new jsPDF({ unit: 'pt', format: 'a4' }),
 ): jsPDF {
   const s = slip.snapshot;
-  let y = 56;
+  let y = 52;
 
   const font = (style: 'normal' | 'bold', size: number, gray: number | [number, number, number] = TEXT) => {
     doc.setFont('helvetica', style);
@@ -89,14 +91,16 @@ export function buildSalarySlipPdf(
     y += 17;
   };
 
-  // Header
+  // Header: logo on the left, title and employee beside it.
+  doc.addImage(logoDataUrl, 'JPEG', LEFT, y - 30, 48, 48);
+  const titleX = LEFT + 58;
   font('bold', 18);
-  doc.text('Salary Slip', LEFT, y);
+  doc.text('Salary Slip', titleX, y);
   font('normal', 11, MUTED);
   doc.text(formatDisplayPeriod(slip.period), RIGHT, y, { align: 'right' });
   y += 18;
   font('bold', 11);
-  doc.text(`${slip.employee.name} (${slip.employee.employeeCode})`, LEFT, y);
+  doc.text(`${slip.employee.name} (${slip.employee.employeeCode})`, titleX, y);
   font('normal', 9, MUTED);
   doc.text(`${action} on ${format(createdAt, 'dd MMM yyyy, hh:mm a')}`, RIGHT, y, { align: 'right' });
   y += 14;

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Users, CalendarCheck2, Wallet, ReceiptText, Settings } from 'lucide-react';
+import { Users, CalendarCheck2, Wallet, ReceiptText, History, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -15,12 +15,14 @@ import {
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import logoUrl from '../assets/deepak-electricals-logo.jpg';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Attendance', end: true, icon: CalendarCheck2, color: 'text-emerald-300' },
   { to: '/employees', label: 'Employees', icon: Users, color: 'text-sky-300' },
   { to: '/advances', label: 'Advances', icon: Wallet, color: 'text-amber-300' },
   { to: '/salary', label: 'Salary & Records', icon: ReceiptText, color: 'text-fuchsia-300' },
+  { to: '/history', label: 'History', icon: History, color: 'text-teal-300' },
   { to: '/settings', label: 'Settings', icon: Settings, color: 'text-indigo-200' },
 ];
 
@@ -64,9 +66,11 @@ export function Layout() {
       >
         <SidebarHeader>
           <div className="flex items-center gap-2.5 px-1 py-1">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 text-sm font-bold text-white shadow-sm ring-1 ring-white/20">
-              DE
-            </span>
+            <img
+              src={logoUrl}
+              alt="Deepak Electricals"
+              className="h-8 w-8 shrink-0 rounded-lg bg-white object-contain shadow-sm ring-1 ring-white/20"
+            />
             <div className="min-w-0 group-data-[collapsible=icon]:hidden">
               <p className="truncate text-sm font-semibold text-white">Deepak Electricals</p>
               <p className="truncate text-xs text-indigo-200">Attendance &amp; Salary</p>
@@ -84,6 +88,7 @@ export function Layout() {
         <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1 size-10 [&_svg]:size-6!" aria-label="Open or close menu" />
           <Separator orientation="vertical" className="h-6" />
+          <img src={logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-contain" />
           <p className="truncate text-sm font-medium">Deepak Electricals</p>
         </header>
 

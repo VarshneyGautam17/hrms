@@ -5,6 +5,7 @@ import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
 import { AdvancesPage } from '../features/advances/AdvancesPage';
 import { SalaryPage } from '../features/salary/SalaryPage';
+import { HistoryPage } from '../features/history/HistoryPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 
 // Firebase Hosting rewrites every path to index.html (see firebase.json),
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: 'employees/:id', element: <EmployeeDetailPage /> },
       { path: 'advances', element: <AdvancesPage /> },
       { path: 'salary', element: <SalaryPage /> },
+      { path: 'history', element: <HistoryPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],
   },

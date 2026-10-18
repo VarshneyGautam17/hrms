@@ -13,6 +13,8 @@ import { AttendancePage } from '../features/attendance/AttendancePage';
 import { AdvancesPage } from '../features/advances/AdvancesPage';
 import { SalaryPage } from '../features/salary/SalaryPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
+import { HistoryPage } from '../features/history/HistoryPage';
+import { giveAdvance } from '../db/repositories/advances';
 import { todayISO, weekdayOf } from '../utils/dates';
 
 beforeEach(async () => {
@@ -162,11 +164,45 @@ describe('page smoke tests (render without crashing)', () => {
     expect(screen.queryByText(/Present dates in/)).not.toBeInTheDocument();
   });
 
+  it('History page lists each employee per month, filters, and expands a row into its details', async () => {
+    const today = todayISO();
+    const asha = await createEmployee({ employeeCode: 'H1', name: 'Asha History', joiningDate: '2026-01-01', monthlySalaryPaise: 3000000 });
+    await createEmployee({ employeeCode: 'H2', name: 'Ravi History', joiningDate: '2026-01-01', monthlySalaryPaise: 3000000 });
+    await giveAdvance({ employeeId: asha.id, date: today, amountPaise: 150000, notes: 'festival' });
+
+    renderAt('/history', <HistoryPage />);
+    const thisMonth = format(parseISO(today), 'MMMM yyyy');
+    await screen.findByRole('heading', { name: new RegExp(thisMonth) }, { timeout: 3000 });
+    expect(screen.getAllByText('Asha History').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ravi History').length).toBeGreaterThan(0);
+
+    // Search narrows the list to one employee.
+    await userEvent.type(screen.getByLabelText('Search'), 'ravi');
+    await waitFor(() => expect(screen.queryByText('Asha History')).not.toBeInTheDocument());
+    await userEvent.clear(screen.getByLabelText('Search'));
+
+    // Expanding Asha's row for this month shows her advance entry.
+    const ashaRow = (await screen.findAllByRole('button', { name: /Asha History/ }))[0];
+    await userEvent.click(ashaRow);
+    expect(ashaRow).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/Given · festival/)).toBeInTheDocument();
+
+    // The day-by-day list shows the advance on the day it was given…
+    expect(screen.getByText(new RegExp(`Day by Day · ${thisMonth}`))).toBeInTheDocument();
+    expect(screen.getByText(/Advance given ₹1,500(\.00)? · festival/)).toBeInTheDocument();
+    // …and "Money & notes only" hides the plain days.
+    const allDayRows = screen.getAllByText(format(parseISO(today), 'EEE')).length;
+    await userEvent.click(screen.getByRole('button', { name: 'Money & notes only' }));
+    expect(screen.getByText(/Advance given ₹1,500(\.00)? · festival/)).toBeInTheDocument();
+    expect(screen.getAllByText(format(parseISO(today), 'EEE')).length).toBeLessThan(allDayRows);
+    expect(screen.getByRole('button', { name: /Download PDF/ })).toBeEnabled();
+  });
+
   it('Settings page renders and shows defaults plus data management actions', async () => {
     renderAt('/settings', <SettingsPage />);
     await waitFor(() => expect(screen.getByText('Settings')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('Salary Divisor')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Export to CSV' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export to CSV' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reset All Data' })).toBeInTheDocument();
   });
 });

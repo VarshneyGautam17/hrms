@@ -5,7 +5,7 @@ import { allAttendanceQuery } from '../../db/repositories/attendance';
 import { employeesQuery } from '../../db/repositories/employees';
 import { useCollection, useDocument } from '../../firebase/hooks';
 import { signOutUser, verifyCurrentPassword } from '../../firebase/auth';
-import { exportAllDataAsCsv, resetAllData } from '../../services/backupService';
+import { resetAllData } from '../../services/backupService';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -105,15 +105,13 @@ function DataSummary() {
       <p className="font-medium">Your data is stored in the cloud and synced to every device you sign into.</p>
       <p className="mt-1">
         All {employees?.length ?? 0} employees and {attendance?.length ?? 0} attendance records are stored in your
-        Firestore database. Use <strong>Export to CSV</strong> below regularly to keep a copy as well.
+        Firestore database. Monthly records can be downloaded as a PDF from the <strong>History</strong> page.
       </p>
     </div>
   );
 }
 
 function DataManagement() {
-  const [exporting, setExporting] = useState(false);
-
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -121,18 +119,6 @@ function DataManagement() {
   const [password, setPassword] = useState('');
   const [verifyingPassword, setVerifyingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-
-  async function handleExportCsv() {
-    setExporting(true);
-    try {
-      const counts = await exportAllDataAsCsv();
-      toast.success('Exported to CSV', {
-        description: `${counts.employees} employees, ${counts.attendance} attendance records.`,
-      });
-    } finally {
-      setExporting(false);
-    }
-  }
 
   function openPasswordStep() {
     setResetConfirmOpen(false);
@@ -167,23 +153,11 @@ function DataManagement() {
 
   return (
     <>
-      <div className="rounded-xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Export to CSV</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Downloads a single CSV file containing all employees, attendance, advances, payments and finalized
-          salaries.
-        </p>
-        <Button className="mt-3 w-full sm:w-auto" variant="outline" onClick={handleExportCsv} disabled={exporting}>
-          {exporting && <Spinner />}
-          {exporting ? 'Exporting…' : 'Export to CSV'}
-        </Button>
-      </div>
-
       <div className="rounded-xl border border-red-200 bg-card p-4">
         <h2 className="text-sm font-semibold text-destructive">Reset All Data</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Permanently deletes every employee, attendance, advance, payment and setting from this account. This
-          cannot be undone — export a CSV first if you might need this data again.
+          cannot be undone — download the History PDFs first if you might need this data again.
         </p>
         <Button className="mt-3 w-full sm:w-auto" variant="destructive" onClick={() => setResetConfirmOpen(true)} disabled={resetting}>
           {resetting && <Spinner />}

@@ -6,6 +6,10 @@ import { todayISO } from '../../utils/dates';
 
 const COLLECTION = 'salaryPayments';
 
+export function allPaymentsQuery() {
+  return userCollection(COLLECTION);
+}
+
 export async function listPaymentsForEmployee(employeeId: string): Promise<SalaryPayment[]> {
   const snap = await getDocs(query(userCollection(COLLECTION), where('employeeId', '==', employeeId)));
   return snap.docs.map((d) => d.data() as SalaryPayment).sort((a, b) => a.date.localeCompare(b.date));

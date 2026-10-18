@@ -12,6 +12,10 @@ export function finalizationDocRef(employeeId: string, period: string) {
   return userDoc(COLLECTION, docId(employeeId, period));
 }
 
+export function allFinalizationsQuery() {
+  return userCollection(COLLECTION);
+}
+
 export async function getFinalization(employeeId: string, period: string): Promise<SalaryFinalization | undefined> {
   const snap = await getDoc(finalizationDocRef(employeeId, period));
   return snap.exists() ? (snap.data() as SalaryFinalization) : undefined;
