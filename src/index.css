@@ -79,7 +79,9 @@ body {
 }
 
 @media print {
-  .no-print {
+  .no-print,
+  [data-slot='sidebar-gap'],
+  [data-slot='sidebar-container'] {
     display: none !important;
   }
 
@@ -87,6 +89,7 @@ body {
     box-shadow: none !important;
     border: none !important;
     margin: 0 !important;
+    padding: 14mm !important;
   }
 }
 
@@ -176,5 +179,21 @@ body {
   }
   html {
     @apply font-sans;
+  }
+  /* Tailwind v4 gives buttons the default arrow cursor; show a hand on everything clickable. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='checkbox'],
+  [role='switch'],
+  a[href],
+  summary,
+  label[for],
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  select:not(:disabled) {
+    cursor: pointer;
   }
 }

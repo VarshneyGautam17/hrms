@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { __resetFakeFirestore } from './mocks/fakeFirestore';
 import { createEmployee } from '../db/repositories/employees';
-import { setAttendanceStatus } from '../db/repositories/attendance';
+import { clearAttendance, setAttendanceStatus } from '../db/repositories/attendance';
 import { addAdvanceTransaction } from '../db/repositories/advances';
 import { updateSettings } from '../db/repositories/settings';
 import { computeSalarySlip } from '../services/salaryService';
@@ -14,9 +14,10 @@ beforeEach(async () => {
   await updateSettings({ weeklyOffDay: 1 });
 });
 
+/** Marks every working day Present. Mondays (the weekly off) are left alone — working them would earn extra pay. */
 async function markPresentForAllDays(employeeId: string, period: string, excludeDates: string[] = []) {
   for (const date of daysInPeriod(period)) {
-    if (excludeDates.includes(date)) continue;
+    if (excludeDates.includes(date) || weekdayOf(date) === 1) continue;
     await setAttendanceStatus(employeeId, date, 'PRESENT');
   }
 }
@@ -100,5 +101,58 @@ describe('salaryService', () => {
     const slip = await computeSalarySlip(employee.id, PERIOD);
     const outsideCount = slip.days.filter((d) => d.source === 'OUTSIDE_EMPLOYMENT').length;
     expect(outsideCount).toBe(14); // Feb 1-14
+    // Paid only for the 14 days worked (Feb 15-28), not the full month.
+    expect(slip.snapshot.earnedSalaryPaise).toBe(13_000_00);
+  });
+
+  it('pays extra for coming to work on the weekly off, on top of the paid day off', async () => {
+    const employee = await createEmployee({
+      employeeCode: 'E7',
+      name: 'Off Day Worker',
+      joiningDate: '2026-01-01',
+      monthlySalaryPaise: 28_000_00, // ₹1,000 per day in a 28-day February
+    });
+    await markPresentForAllDays(employee.id, PERIOD);
+    const [firstMonday, secondMonday] = daysInPeriod(PERIOD).filter((d) => weekdayOf(d) === 1);
+    await setAttendanceStatus(employee.id, firstMonday, 'PRESENT');
+    await setAttendanceStatus(employee.id, secondMonday, 'HALF_DAY');
+
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    expect(slip.snapshot.paidWeeklyOffDays).toBe(4);
+    expect(slip.snapshot.weeklyOffWorkedDays).toBe(1.5);
+    expect(slip.snapshot.weeklyOffExtraPaise).toBe(1_500_00);
+    expect(slip.snapshot.earnedSalaryPaise).toBe(28_000_00 + 1_500_00);
+  });
+
+  it('does not cut pay when a weekly off is marked Absent', async () => {
+    const employee = await createEmployee({
+      employeeCode: 'E8',
+      name: 'Absent On Off',
+      joiningDate: '2026-01-01',
+      monthlySalaryPaise: 28_000_00,
+    });
+    await markPresentForAllDays(employee.id, PERIOD);
+    const firstMonday = daysInPeriod(PERIOD).find((d) => weekdayOf(d) === 1)!;
+    await setAttendanceStatus(employee.id, firstMonday, 'ABSENT');
+
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    expect(slip.snapshot.unpaidAbsentDays).toBe(0);
+    expect(slip.snapshot.earnedSalaryPaise).toBe(28_000_00);
+  });
+
+  it('treats a cleared mark as Not Marked again', async () => {
+    const employee = await createEmployee({
+      employeeCode: 'E9',
+      name: 'Cleared Mark',
+      joiningDate: '2026-01-01',
+      monthlySalaryPaise: 28_000_00,
+    });
+    await markPresentForAllDays(employee.id, PERIOD);
+    await clearAttendance(employee.id, '2026-02-10');
+
+    const slip = await computeSalarySlip(employee.id, PERIOD);
+    expect(slip.snapshot.notMarkedDays).toBe(1);
+    expect(slip.days.find((d) => d.date === '2026-02-10')?.status).toBe('NOT_MARKED');
+    expect(slip.snapshot.earnedSalaryPaise).toBe(27_000_00);
   });
 });

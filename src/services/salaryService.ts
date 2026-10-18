@@ -38,20 +38,23 @@ export async function computeSalarySlip(
   const employee = await getEmployee(employeeId);
   if (!employee) throw new Error('Employee not found.');
 
+  const settings = await getSettings();
+  const [firstDate, lastDate] = [daysInPeriod(period)[0], daysInPeriod(period).slice(-1)[0]];
+
   const existingFinalization = await getFinalization(employeeId, period);
   if (existingFinalization) {
+    // The money stays frozen; the day list is only for showing which dates had
+    // which status, so it is read from current attendance.
+    const attendance = await listAttendanceForEmployeeInRange(employeeId, firstDate, lastDate);
     return {
       employee,
       period,
-      days: [],
+      days: summarizeAttendanceForEmployee(employee, period, attendance, settings.weeklyOffDay).days,
       snapshot: existingFinalization.snapshot,
       finalized: true,
       finalizedAt: existingFinalization.finalizedAt,
     };
   }
-
-  const settings = await getSettings();
-  const [firstDate, lastDate] = [daysInPeriod(period)[0], daysInPeriod(period).slice(-1)[0]];
 
   const [attendance, advances, payments] = await Promise.all([
     listAttendanceForEmployeeInRange(employeeId, firstDate, lastDate),
@@ -76,6 +79,7 @@ export async function computeSalarySlip(
     unpaidAbsentDays: counts.unpaidAbsentDays,
     notMarkedDays: counts.notMarkedDays,
     paidWeeklyOffDays: counts.paidWeeklyOffDays,
+    weeklyOffWorkedDays: counts.weeklyOffWorkedDays,
     otherDeductionPaise,
     alreadyPaidPaise: sumPayments(payments),
     outstandingAdvanceBeforePaise: outstandingBeforePaise,
@@ -103,7 +107,7 @@ export async function finalizeSalary(employeeId: string, slip: SalarySlip) {
           employeeId,
           date,
           amountPaise: slip.snapshot.advanceRecoveredPaise,
-          notes: `Recovered via salary finalization for ${slip.period}`,
+          notes: `Cut from salary for ${slip.period}`,
         })
       : null;
 

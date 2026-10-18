@@ -1,18 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { differenceInCalendarMonths, startOfMonth } from 'date-fns';
+import { differenceInCalendarMonths, format, parseISO, startOfMonth } from 'date-fns';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { __resetFakeFirestore } from './mocks/fakeFirestore';
 import { createEmployee } from '../db/repositories/employees';
-import { ensureDefaultSettings } from '../db/repositories/settings';
+import { ensureDefaultSettings, updateSettings } from '../db/repositories/settings';
+import { setAttendanceStatus } from '../db/repositories/attendance';
 import { EmployeesPage } from '../features/employees/EmployeesPage';
 import { EmployeeDetailPage } from '../features/employees/EmployeeDetailPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
 import { AdvancesPage } from '../features/advances/AdvancesPage';
 import { SalaryPage } from '../features/salary/SalaryPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
-import { todayISO } from '../utils/dates';
+import { todayISO, weekdayOf } from '../utils/dates';
 
 beforeEach(async () => {
   __resetFakeFirestore();
@@ -140,6 +141,25 @@ describe('page smoke tests (render without crashing)', () => {
     await createEmployee({ employeeCode: 'S5', name: 'Salary Person', joiningDate: '2026-01-01', monthlySalaryPaise: 2600000 });
     renderAt('/salary', <SalaryPage />);
     await waitFor(() => expect(screen.getByText('Final Payable')).toBeInTheDocument(), { timeout: 3000 });
+  });
+
+  it('Salary page lists the dates behind an attendance count when its box is clicked', async () => {
+    const today = todayISO();
+    // Make sure today is a normal working day, not the weekly off.
+    await updateSettings({ weeklyOffDay: (weekdayOf(today) + 1) % 7 });
+    const emp = await createEmployee({ employeeCode: 'S9', name: 'Dates Person', joiningDate: '2026-01-01', monthlySalaryPaise: 2600000 });
+    await setAttendanceStatus(emp.id, today, 'PRESENT');
+
+    renderAt('/salary', <SalaryPage />);
+    const presentBox = await screen.findByRole('button', { name: /^1\s*Present$/ }, { timeout: 3000 });
+    expect(screen.queryByText(/Present dates in/)).not.toBeInTheDocument();
+
+    await userEvent.click(presentBox);
+    expect(screen.getByText(/Present dates in/)).toBeInTheDocument();
+    expect(screen.getByText(format(parseISO(today), 'EEE, d MMM'))).toBeInTheDocument();
+
+    await userEvent.click(presentBox);
+    expect(screen.queryByText(/Present dates in/)).not.toBeInTheDocument();
   });
 
   it('Settings page renders and shows defaults plus data management actions', async () => {

@@ -18,6 +18,18 @@ export function formatPaiseAsINR(paise: number): string {
   }).format(rupees);
 }
 
+/**
+ * "Rs. 10,000.00" — for PDFs. jsPDF's built-in fonts have no ₹ glyph and
+ * print a garbage character in its place, so the PDF must not use
+ * formatPaiseAsINR.
+ */
+export function formatPaiseAsRs(paise: number): string {
+  const amount = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+    Math.abs(paiseToRupees(paise)),
+  );
+  return `${paise < 0 ? '-' : ''}Rs. ${amount}`;
+}
+
 export function parseRupeeInputToPaise(input: string): number {
   const cleaned = input.replace(/[^0-9.\-]/g, '');
   const value = parseFloat(cleaned);

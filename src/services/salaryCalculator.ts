@@ -10,6 +10,8 @@ export interface SalaryCalculationInput {
   /** Days nobody marked at all. Still unpaid (same as an explicit absence), tracked separately so it can be labeled distinctly from "Absent". */
   notMarkedDays: number;
   paidWeeklyOffDays: number;
+  /** Weekly off days still worked (half day = 0.5); each earns one extra day's pay. */
+  weeklyOffWorkedDays?: number;
   /** Other authorized deductions (e.g. manual adjustments), in paise. */
   otherDeductionPaise: number;
   /** Salary already paid out for this period, in paise. */
@@ -26,6 +28,11 @@ export interface SalaryCalculationInput {
    * advance ledger when the slip is finalized.
    */
   advanceRepaymentPaise?: number;
+}
+
+/** Paid day count for display; recomputed for snapshots finalized before it was stored. */
+export function paidDaysOf(s: SalaryCalculationSnapshot): number {
+  return s.paidDayEquivalents ?? s.presentDays + 0.5 * s.halfDays + s.paidWeeklyOffDays;
 }
 
 /** Never trust a raw number as a non-negative, finite paise amount without checking. */
@@ -49,9 +56,20 @@ export function calculateSalary(input: SalaryCalculationInput): SalaryCalculatio
 
   const unpaidDayEquivalents = input.unpaidAbsentDays + input.notMarkedDays + 0.5 * input.halfDays;
 
+  // Salary is earned day by day: only days actually worked (plus paid weekly
+  // offs) count. Days that haven't happened yet, or fall before the joining
+  // date, earn nothing — so mid-month the slip shows salary earned so far.
+  const paidDayEquivalents = nonNegative(input.presentDays) + 0.5 * nonNegative(input.halfDays) + nonNegative(input.paidWeeklyOffDays);
+
   const attendanceDeductionPaise = Math.round(dailyRatePaise * unpaidDayEquivalents);
 
-  const earnedSalaryPaise = Math.max(0, Math.round(monthlySalaryPaise - attendanceDeductionPaise));
+  // Working on a weekly off is paid on top of the (already paid) day off, so
+  // it is added after the monthly cap rather than counted inside it.
+  const weeklyOffWorkedDays = nonNegative(input.weeklyOffWorkedDays ?? 0);
+  const weeklyOffExtraPaise = Math.round(dailyRatePaise * weeklyOffWorkedDays);
+
+  const earnedSalaryPaise =
+    Math.min(monthlySalaryPaise, Math.round(dailyRatePaise * paidDayEquivalents)) + weeklyOffExtraPaise;
 
   const availableForRecoveryPaise = Math.max(0, Math.round(earnedSalaryPaise - otherDeductionPaise - alreadyPaidPaise));
 
@@ -72,7 +90,10 @@ export function calculateSalary(input: SalaryCalculationInput): SalaryCalculatio
     unpaidAbsentDays: input.unpaidAbsentDays,
     notMarkedDays: input.notMarkedDays,
     paidWeeklyOffDays: input.paidWeeklyOffDays,
+    weeklyOffWorkedDays,
+    weeklyOffExtraPaise,
     unpaidDayEquivalents,
+    paidDayEquivalents,
     dailyRatePaise,
     attendanceDeductionPaise,
     otherDeductionPaise,

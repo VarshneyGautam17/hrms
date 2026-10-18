@@ -1,4 +1,4 @@
-import { getDoc, getDocs, setDoc, query, where } from 'firebase/firestore';
+import { deleteDoc, getDoc, getDocs, setDoc, query, where } from 'firebase/firestore';
 import { userCollection, userDoc } from '../../firebase/paths';
 import { newId } from '../../utils/id';
 import { todayISO } from '../../utils/dates';
@@ -54,6 +54,11 @@ export async function listAttendanceInRange(startDate: string, endDate: string):
     query(userCollection(COLLECTION), where('date', '>=', startDate), where('date', '<=', endDate)),
   );
   return snap.docs.map((d) => d.data() as AttendanceRecord);
+}
+
+/** Removes one employee's mark for one day, so the day goes back to "Not Marked". */
+export async function clearAttendance(employeeId: string, date: string): Promise<void> {
+  await deleteDoc(userDoc(COLLECTION, docId(employeeId, date)));
 }
 
 /** Sets (or overwrites) one employee's attendance for one day. */

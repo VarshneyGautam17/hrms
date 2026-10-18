@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { CalendarDays, Users, UserCheck, UserX } from 'lucide-react';
-import { setAttendanceStatus, attendanceForDateQuery } from '../../db/repositories/attendance';
+import { setAttendanceStatus, clearAttendance, attendanceForDateQuery } from '../../db/repositories/attendance';
 import { employeesQuery } from '../../db/repositories/employees';
 import { settingsDocRef } from '../../db/repositories/settings';
 import { useCollection, useDocument } from '../../firebase/hooks';
@@ -165,6 +165,12 @@ function AttendanceRow({
     setSavedAt(Date.now());
   }
 
+  async function handleClear() {
+    await clearAttendance(employeeId, date);
+    setNotes('');
+    setSavedAt(Date.now());
+  }
+
   async function handleNotesBlur() {
     if (!record) return; // nothing to attach notes to until a status is set
     await setAttendanceStatus(employeeId, date, record.status, notes || null);
@@ -191,6 +197,7 @@ function AttendanceRow({
         <AttendanceStatusButtons
           value={record?.status ?? null}
           onChange={handleStatus}
+          onClear={handleClear}
           size="sm"
           aria-label={`Attendance status for ${employeeName}`}
         />

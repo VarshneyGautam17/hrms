@@ -103,7 +103,7 @@ export function EmployeeDetailPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard label="Monthly Salary" value={formatPaiseAsINR(employee.monthlySalaryPaise)} icon={ReceiptText} tone="success" />
         <SummaryCard label="Joining Date" value={formatDisplayDate(employee.joiningDate)} icon={CalendarDays} tone="info" />
-        <SummaryCard label="Outstanding Advance" value={formatPaiseAsINR(outstanding)} icon={Wallet} tone="warning" />
+        <SummaryCard label="Advance Pending" value={formatPaiseAsINR(outstanding)} icon={Wallet} tone="warning" />
       </div>
 
       <section className="rounded-xl border bg-card p-4">
@@ -182,7 +182,7 @@ export function EmployeeDetailPage() {
                     <TableCell className="text-muted-foreground">{formatDisplayDate(tx.date)}</TableCell>
                     <TableCell>
                       <ToneBadge tone={tx.type === 'ADVANCE' ? 'warning' : 'success'}>
-                        {tx.type === 'ADVANCE' ? 'Advance Given' : 'Repayment'}
+                        {tx.type === 'ADVANCE' ? 'Advance Given' : 'Advance Returned'}
                       </ToneBadge>
                     </TableCell>
                     <TableCell>{formatPaiseAsINR(tx.amountPaise)}</TableCell>
@@ -235,7 +235,7 @@ function AdvanceSection({
         toast.success('Advance recorded.');
       } else {
         await recordRepayment({ employeeId, date, amountPaise, notes: notes.trim() || null });
-        toast.success('Repayment recorded.');
+        toast.success('Returned amount recorded.');
       }
       setAmount('');
       setNotes('');
@@ -249,7 +249,7 @@ function AdvanceSection({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">Advance Payment</h2>
         <p className="text-sm text-muted-foreground">
-          Outstanding balance: <span className="font-semibold text-foreground">{formatPaiseAsINR(outstanding)}</span>
+          Advance pending: <span className="font-semibold text-foreground">{formatPaiseAsINR(outstanding)}</span>
         </p>
       </div>
 
@@ -258,7 +258,7 @@ function AdvanceSection({
           Give Advance
         </Button>
         <Button type="button" size="sm" variant={mode === 'REPAYMENT' ? 'default' : 'secondary'} onClick={() => setMode('REPAYMENT')}>
-          Record Repayment
+          Advance Returned
         </Button>
       </div>
 
@@ -276,7 +276,7 @@ function AdvanceSection({
           <Input id="emp-advance-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <Button type="submit" className="sm:col-span-2 lg:col-span-1 lg:w-fit">
-          {mode === 'ADVANCE' ? 'Give Advance' : 'Record Repayment'}
+          {mode === 'ADVANCE' ? 'Give Advance' : 'Save Returned Amount'}
         </Button>
       </form>
     </section>

@@ -5,7 +5,7 @@ import { setAttendanceStatus } from '../db/repositories/attendance';
 import { addAdvanceTransaction, computeOutstandingBalance, listAdvancesForEmployee } from '../db/repositories/advances';
 import { updateSettings } from '../db/repositories/settings';
 import { computeSalarySlip, finalizeSalary } from '../services/salaryService';
-import { daysInPeriod } from '../utils/dates';
+import { daysInPeriod, weekdayOf } from '../utils/dates';
 
 const PERIOD = '2026-02'; // 28 days
 
@@ -14,9 +14,10 @@ beforeEach(async () => {
   await updateSettings({ weeklyOffDay: 1 });
 });
 
+/** Marks every working day Present. Mondays (the weekly off) are left alone — working them would earn extra pay. */
 async function markPresentForAllDays(employeeId: string, period: string, excludeDates: string[] = []) {
   for (const date of daysInPeriod(period)) {
-    if (excludeDates.includes(date)) continue;
+    if (excludeDates.includes(date) || weekdayOf(date) === 1) continue;
     await setAttendanceStatus(employeeId, date, 'PRESENT');
   }
 }

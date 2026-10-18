@@ -73,7 +73,13 @@ export interface SalaryCalculationSnapshot {
   unpaidAbsentDays: number;
   notMarkedDays: number;
   paidWeeklyOffDays: number;
+  /** Weekly off days the employee still came to work (half day = 0.5). Missing on older snapshots. */
+  weeklyOffWorkedDays?: number;
+  /** Extra pay for weekly-off work: per day rate × weeklyOffWorkedDays. Missing on older snapshots. */
+  weeklyOffExtraPaise?: number;
   unpaidDayEquivalents: number;
+  /** Present + 0.5 × half days + paid weekly offs. Missing on snapshots finalized before salary became earned-per-day. */
+  paidDayEquivalents?: number;
   dailyRatePaise: number;
   attendanceDeductionPaise: number;
   otherDeductionPaise: number;

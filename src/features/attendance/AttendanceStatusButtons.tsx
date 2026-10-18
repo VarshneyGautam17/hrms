@@ -11,18 +11,21 @@ const OPTIONS: { status: MarkedAttendanceStatus; label: string; activeClass: str
 interface Props {
   value: MarkedAttendanceStatus | null;
   onChange: (status: MarkedAttendanceStatus) => void;
+  /** When given, a "Not Marked" button is shown that removes the day's mark. */
+  onClear?: () => void;
   size?: 'sm' | 'md';
   'aria-label'?: string;
 }
 
-export function AttendanceStatusButtons({ value, onChange, size = 'md', ...rest }: Props) {
+export function AttendanceStatusButtons({ value, onChange, onClear, size = 'md', ...rest }: Props) {
+  const buttonSize = size === 'sm' ? 'sm' : 'default';
   return (
-    <div className="inline-flex gap-1.5" role="group" aria-label={rest['aria-label'] ?? 'Attendance status'}>
+    <div className="inline-flex flex-wrap gap-1.5" role="group" aria-label={rest['aria-label'] ?? 'Attendance status'}>
       {OPTIONS.map((opt) => (
         <Button
           key={opt.status}
           type="button"
-          size={size === 'sm' ? 'sm' : 'default'}
+          size={buttonSize}
           variant="outline"
           aria-pressed={value === opt.status}
           onClick={() => onChange(opt.status)}
@@ -31,6 +34,18 @@ export function AttendanceStatusButtons({ value, onChange, size = 'md', ...rest 
           {opt.label}
         </Button>
       ))}
+      {onClear && (
+        <Button
+          type="button"
+          size={buttonSize}
+          variant="outline"
+          aria-pressed={value === null}
+          onClick={() => value !== null && onClear()}
+          className={cn(value === null && 'bg-slate-200 text-slate-800 hover:bg-slate-200')}
+        >
+          Not Marked
+        </Button>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,35 @@ const NAV_ITEMS = [
   { to: '/salary', label: 'Salary & Records', icon: ReceiptText, color: 'text-fuchsia-300' },
   { to: '/settings', label: 'Settings', icon: Settings, color: 'text-indigo-200' },
 ];
+
+/** Sidebar links. Lives inside SidebarProvider so it can close the mobile drawer once a page is picked. */
+function NavMenu({ pathname }: { pathname: string }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  return (
+    <SidebarMenu>
+      {NAV_ITEMS.map((item) => {
+        const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
+        return (
+          <SidebarMenuItem key={item.to}>
+            <SidebarMenuButton
+              isActive={isActive}
+              tooltip={item.label}
+              render={<NavLink to={item.to} end={item.end} />}
+              onClick={() => isMobile && setOpenMobile(false)}
+              className={cn(
+                'text-indigo-100 hover:bg-white/10 hover:text-white data-active:bg-white/15 data-active:text-white data-active:shadow-sm',
+              )}
+            >
+              <item.icon className={cn(item.color)} />
+              <span>{item.label}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
+}
 
 export function Layout() {
   const { pathname } = useLocation();
@@ -45,38 +75,19 @@ export function Layout() {
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
-                const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
-                return (
-                  <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      tooltip={item.label}
-                      render={<NavLink to={item.to} end={item.end} />}
-                      className={cn(
-                        'text-indigo-100 hover:bg-white/10 hover:text-white data-active:bg-white/15 data-active:text-white data-active:shadow-sm',
-                      )}
-                    >
-                      <item.icon className={cn(item.color)} />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+            <NavMenu pathname={pathname} />
           </SidebarGroup>
         </SidebarContent>
       </Sidebar>
 
       <SidebarInset>
         <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="h-5" />
+          <SidebarTrigger className="-ml-1 size-10 [&_svg]:size-6!" aria-label="Open or close menu" />
+          <Separator orientation="vertical" className="h-6" />
           <p className="truncate text-sm font-medium">Deepak Electricals</p>
         </header>
 
-        <main className="flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8 print:p-0">
           <div key={pathname} className="animate-in fade-in-0 slide-in-from-bottom-1 mx-auto w-full max-w-7xl duration-300">
             <Outlet />
           </div>

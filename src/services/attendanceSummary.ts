@@ -8,6 +8,8 @@ export interface DayClassification {
   source: DaySource;
   status: AttendanceStatus | 'OUTSIDE_EMPLOYMENT' | 'NOT_MARKED' | 'FUTURE';
   paid: boolean;
+  /** True when this day counted as a paid weekly off (whether or not the employee also came in to work). */
+  weeklyOff: boolean;
 }
 
 export interface AttendanceSummaryCounts {
@@ -17,6 +19,8 @@ export interface AttendanceSummaryCounts {
   /** Days nobody marked at all — kept separate from unpaidAbsentDays so it can be labeled "Not Marked" instead of "Absent". */
   notMarkedDays: number;
   paidWeeklyOffDays: number;
+  /** Weekly off days the employee still worked: 1 for Present, 0.5 for Half Day. Earns extra pay on top of the paid weekly off. */
+  weeklyOffWorkedDays: number;
 }
 
 export interface AttendanceSummaryResult {
@@ -31,20 +35,22 @@ function emptyCounts(): AttendanceSummaryCounts {
     unpaidAbsentDays: 0,
     notMarkedDays: 0,
     paidWeeklyOffDays: 0,
+    weeklyOffWorkedDays: 0,
   };
 }
 
 /**
  * Classifies every calendar day of a period for one employee, combining
  * explicit attendance marks with the company's configured weekly off day.
- * Priority order: explicit attendance mark > weekly off > future > not
- * marked. A day nobody marked is never labeled "Absent" — it gets its own
+ * Priority order: explicit attendance mark > future > weekly off > not
+ * marked. A mark on a weekly off never makes that day unpaid: Present or
+ * Half Day there counts as weekly-off work (extra pay on top), and Absent
+ * leaves it a plain paid weekly off. A day nobody marked is never labeled "Absent" — it gets its own
  * "Not Marked" status — but it is still unpaid in the salary math, same as
  * an explicit absence, until someone marks it Present or Half Day. Days
- * after today are "Future": never counted toward pay and never defaulted to
- * Absent/Not Marked, since they haven't happened yet. Days before the
- * employee's joining date are excluded so a mid-month joiner is not
- * penalized for days before they started.
+ * after today (weekly offs included) are "Future": they haven't been earned
+ * yet, so they never count toward pay. Days before the employee's joining
+ * date are "Outside Employment" and likewise earn nothing.
  */
 export function summarizeAttendanceForEmployee(
   employee: Employee,
@@ -60,29 +66,40 @@ export function summarizeAttendanceForEmployee(
 
   for (const date of daysInPeriod(period)) {
     if (date < employee.joiningDate) {
-      days.push({ date, source: 'OUTSIDE_EMPLOYMENT', status: 'OUTSIDE_EMPLOYMENT', paid: false });
+      days.push({ date, source: 'OUTSIDE_EMPLOYMENT', status: 'OUTSIDE_EMPLOYMENT', paid: false, weeklyOff: false });
       continue;
     }
 
+    const weeklyOff = isWeeklyOffDay(weekdayOf(date), weeklyOffDay);
     const attendance = attendanceByDate.get(date);
+    if (attendance && weeklyOff) {
+      // The weekly off stays paid no matter what was marked. Coming in to work
+      // on it earns extra on top; an "Absent" mark on a day off costs nothing.
+      days.push({ date, source: 'ATTENDANCE', status: attendance.status, paid: true, weeklyOff: true });
+      counts.paidWeeklyOffDays += 1;
+      if (attendance.status === 'PRESENT') counts.weeklyOffWorkedDays += 1;
+      else if (attendance.status === 'HALF_DAY') counts.weeklyOffWorkedDays += 0.5;
+      continue;
+    }
+
     if (attendance) {
-      days.push({ date, source: 'ATTENDANCE', status: attendance.status, paid: attendance.status !== 'ABSENT' });
+      days.push({ date, source: 'ATTENDANCE', status: attendance.status, paid: attendance.status !== 'ABSENT', weeklyOff: false });
       applyCount(counts, attendance.status);
       continue;
     }
 
-    if (isWeeklyOffDay(weekdayOf(date), weeklyOffDay)) {
-      days.push({ date, source: 'WEEKLY_OFF', status: 'WEEKLY_OFF', paid: true });
+    if (date > today) {
+      days.push({ date, source: 'FUTURE', status: 'FUTURE', paid: false, weeklyOff: false });
+      continue;
+    }
+
+    if (weeklyOff) {
+      days.push({ date, source: 'WEEKLY_OFF', status: 'WEEKLY_OFF', paid: true, weeklyOff: true });
       counts.paidWeeklyOffDays += 1;
       continue;
     }
 
-    if (date > today) {
-      days.push({ date, source: 'FUTURE', status: 'FUTURE', paid: false });
-      continue;
-    }
-
-    days.push({ date, source: 'NOT_MARKED', status: 'NOT_MARKED', paid: false });
+    days.push({ date, source: 'NOT_MARKED', status: 'NOT_MARKED', paid: false, weeklyOff: false });
     counts.notMarkedDays += 1;
   }
 

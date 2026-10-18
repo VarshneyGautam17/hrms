@@ -22,11 +22,11 @@ describe('summarizeAttendanceForEmployee', () => {
 
     const { days, counts } = summarizeAttendanceForEmployee(employee, period, [], 1);
 
-    // Future Mondays are still the weekly off (that's known in advance); only non-Monday future days are "FUTURE".
-    const futureDays = days.filter((d) => d.date > today && weekdayOf(d.date) !== 1);
+    // Every day after today is "FUTURE" — weekly offs included, since they haven't been earned yet.
+    const futureDays = days.filter((d) => d.date > today);
     const pastOrTodayNonWeeklyOff = days.filter((d) => d.date <= today && weekdayOf(d.date) !== 1);
 
-    // Every non-Monday day after today is FUTURE, and FUTURE days are never paid.
+    // Every day after today is FUTURE, and FUTURE days are never paid.
     expect(futureDays.every((d) => d.status === 'FUTURE' && d.source === 'FUTURE' && d.paid === false)).toBe(true);
 
     // Every day up to and including today (that isn't the weekly off) is unmarked -> NOT_MARKED, not FUTURE.
@@ -35,6 +35,8 @@ describe('summarizeAttendanceForEmployee', () => {
     // Only past/today unmarked days count toward the deduction; future days contribute nothing.
     expect(counts.notMarkedDays).toBe(pastOrTodayNonWeeklyOff.length);
     expect(counts.presentDays + counts.halfDays + counts.unpaidAbsentDays).toBe(0);
+    // Only weekly offs up to today are paid.
+    expect(counts.paidWeeklyOffDays).toBe(days.filter((d) => d.date <= today && weekdayOf(d.date) === 1).length);
   });
 
   it('still shows an explicit attendance mark even if it were somehow set on a future date', () => {
