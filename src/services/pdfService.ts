@@ -166,6 +166,37 @@ export function buildSalarySlipPdf(
   return doc;
 }
 
+/** Normalizes a stored phone number into the digits-only, country-coded form wa.me needs. */
+function toWhatsAppDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length === 10 ? `91${digits}` : digits;
+}
+
+/**
+ * Shares the slip PDF straight into WhatsApp when the browser can share
+ * files (the Web Share API — most mobile browsers, where WhatsApp shows up
+ * as a share target). On desktop, where that's not possible, it downloads
+ * the PDF instead and opens a WhatsApp chat with the employee so it can be
+ * attached by hand.
+ */
+export async function shareSalarySlipOnWhatsApp(slip: SalarySlip): Promise<'shared' | 'fallback'> {
+  const now = new Date();
+  const doc = buildSalarySlipPdf(slip, now, 'Downloaded');
+  const fileName = salarySlipFileName(slip, now);
+  const message = `Salary slip for ${formatDisplayPeriod(slip.period)} - ${slip.employee.name} (${slip.employee.employeeCode})`;
+
+  const file = new File([doc.output('blob')], fileName, { type: 'application/pdf' });
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: 'Salary Slip', text: message });
+    return 'shared';
+  }
+
+  doc.save(fileName);
+  const digits = slip.employee.phone ? toWhatsAppDigits(slip.employee.phone) : '';
+  window.open(`https://wa.me/${digits}?text=${encodeURIComponent(message)}`, '_blank');
+  return 'fallback';
+}
+
 /** e.g. "Salary-Slip_Ramesh-Kumar_E001_Oct-2026_2026-10-18_09-15.pdf" */
 export function salarySlipFileName(slip: SalarySlip, downloadedAt: Date): string {
   // Strip characters that aren't allowed (or are awkward) in file names.

@@ -4,7 +4,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { employeesQuery } from '../../db/repositories/employees';
 import { useCollection } from '../../firebase/hooks';
 import { computeSalarySlip, finalizeSalary, type SalarySlip } from '../../services/salaryService';
-import { downloadSalarySlipPdf, printSalarySlip } from '../../services/pdfService';
+import { downloadSalarySlipPdf, printSalarySlip, shareSalarySlipOnWhatsApp } from '../../services/pdfService';
 import { paidDaysOf } from '../../services/salaryCalculator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,6 +113,7 @@ function SalarySlipView({
   const [loading, setLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [confirmFinalizeOpen, setConfirmFinalizeOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   async function loadSlip() {
     setLoading(true);
@@ -154,6 +155,26 @@ function SalarySlipView({
     } finally {
       setFinalizing(false);
       setConfirmFinalizeOpen(false);
+    }
+  }
+
+  async function handleShareWhatsApp() {
+    if (!slip) return;
+    setSharing(true);
+    try {
+      const result = await shareSalarySlipOnWhatsApp(slip);
+      if (result === 'fallback') {
+        toast.info('PDF downloaded', {
+          description: slip.employee.phone
+            ? 'WhatsApp is opening in a new tab — attach the downloaded PDF there.'
+            : 'No phone number on file for this employee — attach the downloaded PDF in WhatsApp manually.',
+        });
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      toast.error('Failed to share on WhatsApp', { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -232,6 +253,10 @@ function SalarySlipView({
             <Button variant="outline" onClick={() => printSalarySlip(slip)} disabled={loading}>
               {loading && <Spinner />}
               Print Salary Slip
+            </Button>
+            <Button variant="outline" onClick={handleShareWhatsApp} disabled={loading || sharing}>
+              {sharing && <Spinner />}
+              Share on WhatsApp
             </Button>
           </div>
         </div>

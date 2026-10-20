@@ -1,13 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Users } from 'lucide-react';
-import { employeesQuery } from '../../db/repositories/employees';
+import { employeesQuery, deleteEmployee } from '../../db/repositories/employees';
 import { useCollection } from '../../firebase/hooks';
+import { verifyCurrentPassword } from '../../firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/empty-state';
 import { TableSkeleton } from '@/components/table-skeleton';
+import { Spinner } from '@/components/spinner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatPaiseAsINR } from '../../utils/currency';
 import { EmployeeFormDialog } from './EmployeeFormDialog';
 import type { Employee } from '../../types';
@@ -17,6 +32,43 @@ export function EmployeesPage() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Employee | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [deleting, setDeleting] = useState<Employee | null>(null);
+
+  const [passwordTarget, setPasswordTarget] = useState<Employee | null>(null);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  function openPasswordStep() {
+    setDeleting(null);
+    setPasswordTarget(deleting);
+    setPassword('');
+    setPasswordError(null);
+  }
+
+  async function handlePasswordSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!passwordTarget) return;
+    setPasswordError(null);
+    setDeleteBusy(true);
+    try {
+      await verifyCurrentPassword(password);
+    } catch {
+      setDeleteBusy(false);
+      setPasswordError('Incorrect password. Try again.');
+      return;
+    }
+    try {
+      await deleteEmployee(passwordTarget.id);
+      toast.success(`${passwordTarget.name} has been permanently deleted.`);
+      setPasswordTarget(null);
+      setPassword('');
+    } catch (err) {
+      toast.error('Failed to delete employee', { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     if (!employees) return [];
@@ -82,15 +134,23 @@ export function EmployeesPage() {
                   <TableCell className="text-muted-foreground">{e.department ?? '—'}</TableCell>
                   <TableCell>{formatPaiseAsINR(e.monthlySalaryPaise)}</TableCell>
                   <TableCell>
-                    <button
-                      className="text-sm font-medium text-primary hover:underline"
-                      onClick={() => {
-                        setEditing(e);
-                        setShowForm(true);
-                      }}
-                    >
-                      Edit
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        className="text-sm font-medium text-primary hover:underline"
+                        onClick={() => {
+                          setEditing(e);
+                          setShowForm(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="text-sm font-medium text-destructive hover:underline"
+                        onClick={() => setDeleting(e)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -100,6 +160,72 @@ export function EmployeesPage() {
       )}
 
       <EmployeeFormDialog open={showForm} employee={editing} onClose={() => setShowForm(false)} />
+
+      <AlertDialog open={!!deleting} onOpenChange={(next) => !next && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleting?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes this employee along with all of their attendance, advance, payment and salary
+              records. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={openPasswordStep}>
+              Delete Employee
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={!!passwordTarget}
+        onOpenChange={(next) => {
+          if (!next) {
+            setPasswordTarget(null);
+            setPassword('');
+            setPasswordError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm your password</DialogTitle>
+            <DialogDescription>
+              For your safety, re-enter your account password to permanently delete {passwordTarget?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="delete-employee-password">Password</Label>
+              <Input
+                id="delete-employee-password"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              {passwordError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {passwordError}
+                </p>
+              )}
+            </div>
+            <DialogFooter className="-mx-0 -mb-0 border-t-0 bg-transparent p-0 pt-2">
+              <Button type="button" variant="outline" onClick={() => setPasswordTarget(null)} disabled={deleteBusy}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={deleteBusy || !password}>
+                {deleteBusy && <Spinner />}
+                Confirm &amp; Delete
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
