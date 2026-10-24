@@ -3,6 +3,7 @@ import { userCollection, userDoc } from '../../firebase/paths';
 import type { AdvanceTransaction } from '../../types';
 import { newId } from '../../utils/id';
 import { todayISO } from '../../utils/dates';
+import { getEmployee } from './employees';
 
 const COLLECTION = 'advanceTransactions';
 
@@ -45,6 +46,10 @@ export async function addAdvanceTransaction(input: NewAdvanceInput): Promise<Adv
   }
   if (input.date > todayISO()) {
     throw new Error('Advance transactions cannot be dated in the future.');
+  }
+  const employee = await getEmployee(input.employeeId);
+  if (employee && input.date < employee.joiningDate) {
+    throw new Error(`Advance transactions cannot be dated before the joining date (${employee.joiningDate}).`);
   }
   const transaction: AdvanceTransaction = {
     id: newId(),

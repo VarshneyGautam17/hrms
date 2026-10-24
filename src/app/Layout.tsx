@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Users, CalendarCheck2, Wallet, ReceiptText, History, Settings } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { Users, CalendarCheck2, Wallet, ReceiptText, History, Settings, Moon, Sun } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -43,6 +46,9 @@ function NavMenu({ pathname }: { pathname: string }) {
               onClick={() => isMobile && setOpenMobile(false)}
               className={cn(
                 'text-indigo-100 hover:bg-white/10 hover:text-white data-active:bg-white/15 data-active:text-white data-active:shadow-sm',
+                // Icons read small at the default size-4; size up while expanded, but keep the collapsed
+                // icon rail at size-4 since that's an exact fit for its fixed 32px button box.
+                '[&_svg]:size-5 group-data-[collapsible=icon]:[&_svg]:size-4!',
               )}
             >
               <item.icon className={cn(item.color)} />
@@ -55,6 +61,28 @@ function NavMenu({ pathname }: { pathname: string }) {
   );
 }
 
+/** Toggles between light and dark theme. Reads the resolved theme only after mount, since next-themes can't know it until then. */
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const isDark = mounted && resolvedTheme === 'dark';
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className="ml-auto"
+      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+    >
+      {mounted ? isDark ? <Sun /> : <Moon /> : null}
+    </Button>
+  );
+}
+
 export function Layout() {
   const { pathname } = useLocation();
 
@@ -64,12 +92,12 @@ export function Layout() {
         collapsible="icon"
         className="no-print [&>div>[data-slot=sidebar-inner]]:bg-gradient-to-b [&>div>[data-slot=sidebar-inner]]:from-indigo-600 [&>div>[data-slot=sidebar-inner]]:to-violet-800"
       >
-        <SidebarHeader>
-          <div className="flex items-center gap-2.5 px-1 py-1">
+        <SidebarHeader className="border-b border-white/10">
+          <div className="flex items-center gap-3 rounded-xl bg-white/10 px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <img
               src={logoUrl}
               alt="Deepak Electricals"
-              className="h-8 w-8 shrink-0 rounded-lg bg-white object-contain shadow-sm ring-1 ring-white/20"
+              className="h-11 w-11 shrink-0 rounded-lg bg-white object-contain p-1 shadow-md ring-2 ring-white/40 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:p-0.5"
             />
             <div className="min-w-0 group-data-[collapsible=icon]:hidden">
               <p className="truncate text-sm font-semibold text-white">Deepak Electricals</p>
@@ -87,9 +115,14 @@ export function Layout() {
       <SidebarInset>
         <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1 size-10 [&_svg]:size-6!" aria-label="Open or close menu" />
-          <Separator orientation="vertical" className="h-6" />
-          <img src={logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-contain" />
-          <p className="truncate text-sm font-medium">Deepak Electricals</p>
+          <Separator orientation="vertical" className="h-14" />
+          <img
+            src={logoUrl}
+            alt=""
+            className="h-9 w-9 shrink-0 rounded-md bg-white object-contain p-0.5 shadow-sm ring-1 ring-border"
+          />
+          <p className="truncate text-sm font-semibold">Deepak Electricals</p>
+          <ThemeToggle />
         </header>
 
         <main className="flex-1 overflow-x-hidden p-4 sm:p-5 md:p-6 lg:p-8 print:p-0">

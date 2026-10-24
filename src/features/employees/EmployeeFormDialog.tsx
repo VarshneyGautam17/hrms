@@ -102,27 +102,27 @@ export function EmployeeFormDialog({ open, employee, onClose }: Props) {
           <DialogTitle>{employee ? 'Edit Employee' : 'Add Employee'}</DialogTitle>
         </DialogHeader>
         <form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="employeeCode">Employee Code</Label>
             <Input id="employeeCode" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="name">Full Name</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="joiningDate">Joining Date</Label>
             <DatePicker id="joiningDate" value={joiningDate} onChange={setJoiningDate} />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="phone">Phone (optional)</Label>
             <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="department">Department (optional)</Label>
             <Input id="department" value={department} onChange={(e) => setDepartment(e.target.value)} />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="salary">Monthly Salary (₹)</Label>
             <Input
               id="salary"

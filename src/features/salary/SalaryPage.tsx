@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { PageLoader, Spinner } from '@/components/spinner';
 import { formatPaiseAsINR, parseRupeeInputToPaise, paiseToRupees } from '../../utils/currency';
-import { currentPeriod, previousPeriods, formatDisplayPeriod, todayISO, formatDisplayDate } from '../../utils/dates';
+import { currentPeriod, previousPeriods, formatDisplayPeriod, todayISO, formatDisplayDate, dateToPeriod } from '../../utils/dates';
 import type { Employee } from '../../types';
 import type { DayClassification } from '../../services/attendanceSummary';
 import { format, parseISO } from 'date-fns';
@@ -30,10 +30,13 @@ import { cn } from '@/lib/utils';
 
 export function SalaryPage() {
   const employees = useCollection<Employee>(employeesQuery(), []);
-  const [period, setPeriod] = useState(currentPeriod());
+  const [chosenPeriod, setPeriod] = useState(currentPeriod());
   const [employeeId, setEmployeeId] = useState('');
 
-  const periods = [currentPeriod(), ...previousPeriods(12).slice(1)];
+  const selectedEmployee = (employees ?? []).find((e) => e.id === employeeId);
+  const periods = periodsForEmployee(selectedEmployee);
+  // A month from before the selected employee joined isn't offered, so fall back to the latest one.
+  const period = periods.includes(chosenPeriod) ? chosenPeriod : periods[0];
   // Passed to <Select items> so the trigger shows the label, not the raw value (an employee id / "YYYY-MM").
   const employeeItems = (employees ?? []).map((e) => ({ value: e.id, label: `${e.name} (${e.employeeCode})` }));
   const periodItems = periods.map((p) => ({ value: p, label: formatDisplayPeriod(p) }));
@@ -46,10 +49,10 @@ export function SalaryPage() {
 
   const selectors = (
     <>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label>Employee</Label>
         <Select items={employeeItems} value={employeeId} onValueChange={(v) => setEmployeeId(v ?? '')}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full min-w-0">
             <SelectValue placeholder="Select employee" />
           </SelectTrigger>
           <SelectContent>
@@ -61,10 +64,10 @@ export function SalaryPage() {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label>Month</Label>
         <Select items={periodItems} value={period} onValueChange={(v) => v && setPeriod(v)}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full min-w-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -97,6 +100,16 @@ export function SalaryPage() {
   );
 }
 
+/** The last 12 months, newest first, minus any before the employee's joining month. */
+function periodsForEmployee(employee: Employee | undefined): string[] {
+  const all = previousPeriods(12);
+  if (!employee) return all;
+  const joiningPeriod = dateToPeriod(employee.joiningDate);
+  const employed = all.filter((p) => p >= joiningPeriod);
+  // Joining in a future month: there's nothing earned yet, so only offer the current month.
+  return employed.length > 0 ? employed : [currentPeriod()];
+}
+
 function SalarySlipView({
   employeeId,
   period,
@@ -109,6 +122,7 @@ function SalarySlipView({
   const [otherDeduction, setOtherDeduction] = useState('0');
   const [advanceRepayment, setAdvanceRepayment] = useState('0');
   const [advanceRepaymentTouched, setAdvanceRepaymentTouched] = useState(false);
+  const [advanceCutWarning, setAdvanceCutWarning] = useState<string | null>(null);
   const [slip, setSlip] = useState<SalarySlip | null>(null);
   const [loading, setLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -122,8 +136,13 @@ function SalarySlipView({
       const advanceRepaymentPaise = advanceRepaymentTouched ? parseRupeeInputToPaise(advanceRepayment) : undefined;
       const result = await computeSalarySlip(employeeId, period, otherDeductionPaise, advanceRepaymentPaise);
       setSlip(result);
-      if (!advanceRepaymentTouched && !result.finalized) {
-        setAdvanceRepayment(String(paiseToRupees(result.snapshot.maxRecoverablePaise)));
+      if (!result.finalized) {
+        if (!advanceRepaymentTouched) {
+          setAdvanceRepayment(String(paiseToRupees(result.snapshot.maxRecoverablePaise)));
+        } else if (advanceRepaymentPaise !== undefined && advanceRepaymentPaise > result.snapshot.advanceRecoveredPaise) {
+          // The limit shrank (e.g. a bigger Other Deduction) — keep the box showing what is actually cut.
+          setAdvanceRepayment(String(paiseToRupees(result.snapshot.advanceRecoveredPaise)));
+        }
       }
     } finally {
       setLoading(false);
@@ -134,6 +153,7 @@ function SalarySlipView({
     setOtherDeduction('0');
     setAdvanceRepayment('0');
     setAdvanceRepaymentTouched(false);
+    setAdvanceCutWarning(null);
   }, [employeeId, period]);
 
   useEffect(() => {
@@ -181,7 +201,7 @@ function SalarySlipView({
   if (!slip)
     return (
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 no-print">{selectors}</div>
+        <div className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 no-print">{selectors}</div>
         <PageLoader />
       </div>
     );
@@ -194,7 +214,7 @@ function SalarySlipView({
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)] print:block">
-        <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 no-print lg:sticky lg:top-4">
+        <div className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 no-print lg:sticky lg:top-4">
           <p className="text-sm font-semibold">Salary Details</p>
           {selectors}
 
@@ -206,7 +226,7 @@ function SalarySlipView({
             </div>
           ) : (
             <>
-              <div className="flex flex-col gap-1.5 border-t pt-4">
+              <div className="flex min-w-0 flex-col gap-1.5 border-t pt-4">
                 <Label htmlFor="otherDeduction">Other Deduction (₹)</Label>
                 <Input
                   id="otherDeduction"
@@ -219,22 +239,44 @@ function SalarySlipView({
                 />
                 <span className="text-xs text-muted-foreground">Any extra amount to cut this month</span>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Label htmlFor="advanceRepayment">Advance to Cut from Salary (₹)</Label>
                 <Input
                   id="advanceRepayment"
                   type="number"
                   min="0"
+                  max={paiseToRupees(s.maxRecoverablePaise)}
                   step="0.01"
                   value={advanceRepayment}
                   onChange={(e) => {
                     setAdvanceRepaymentTouched(true);
-                    setAdvanceRepayment(e.target.value);
+                    const entered = parseRupeeInputToPaise(e.target.value);
+                    if (entered > s.maxRecoverablePaise) {
+                      setAdvanceCutWarning(
+                        s.outstandingAdvanceBeforePaise <= s.maxRecoverablePaise
+                          ? `Only ${formatPaiseAsINR(s.outstandingAdvanceBeforePaise)} advance is pending.`
+                          : `Only ${formatPaiseAsINR(s.maxRecoverablePaise)} of salary is left to cut from this month.`,
+                      );
+                      setAdvanceRepayment(String(paiseToRupees(s.maxRecoverablePaise)));
+                    } else {
+                      setAdvanceCutWarning(null);
+                      setAdvanceRepayment(entered < 0 ? '0' : e.target.value);
+                    }
                   }}
-                  disabled={locked}
+                  disabled={locked || s.maxRecoverablePaise === 0}
+                  aria-invalid={!!advanceCutWarning}
+                  // No scroll-wheel or spinner-arrow changes — the amount should only change by typing.
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
+                {advanceCutWarning && (
+                  <span className="text-xs text-destructive" role="alert">
+                    {advanceCutWarning}
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground">
-                  Advance pending: {formatPaiseAsINR(s.outstandingAdvanceBeforePaise)}
+                  Advance pending: {formatPaiseAsINR(s.outstandingAdvanceBeforePaise)} · Max you can cut:{' '}
+                  {formatPaiseAsINR(s.maxRecoverablePaise)}
                 </span>
               </div>
             </>
@@ -496,7 +538,7 @@ function AttendanceBreakdown({ slip }: { slip: SalarySlip }) {
       key: 'notMarked',
       label: 'Not Marked',
       count: s.notMarkedDays,
-      className: 'bg-muted text-foreground',
+      className: 'bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
       matches: (d) => d.status === 'NOT_MARKED',
     },
     {

@@ -6,6 +6,7 @@ import { formatPaiseAsINR, parseRupeeInputToPaise } from '../../utils/currency';
 import { formatDisplayDate, todayISO } from '../../utils/dates';
 import { ToneBadge, StatusBadge } from '@/components/status-badge';
 import { SummaryCard } from '@/components/summary-card';
+import { MaskedAmount } from '@/components/masked-amount';
 import { EmptyState } from '@/components/empty-state';
 import { PageLoader } from '@/components/spinner';
 import { Button } from '@/components/ui/button';
@@ -101,13 +102,18 @@ export function EmployeeDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <SummaryCard label="Monthly Salary" value={formatPaiseAsINR(employee.monthlySalaryPaise)} icon={ReceiptText} tone="success" />
+        <SummaryCard
+          label="Monthly Salary"
+          value={<MaskedAmount value={formatPaiseAsINR(employee.monthlySalaryPaise)} />}
+          icon={ReceiptText}
+          tone="success"
+        />
         <SummaryCard label="Joining Date" value={formatDisplayDate(employee.joiningDate)} icon={CalendarDays} tone="info" />
         <SummaryCard label="Advance Pending" value={formatPaiseAsINR(outstanding)} icon={Wallet} tone="warning" />
       </div>
 
       <section className="rounded-xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Today's Attendance</h2>
+        <h2 className="text-lg font-semibold">Today's Attendance</h2>
         <p className="mt-1 text-xs text-muted-foreground">{formatDisplayDate(today)}</p>
         <div className="mt-3">
           <AttendanceStatusButtons value={todayRecord?.status ?? null} onChange={handleMarkToday} aria-label="Today's attendance status" />
@@ -115,15 +121,15 @@ export function EmployeeDetailPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold">Attendance Calendar (Last 3 Months)</h2>
+        <h2 className="mb-2 text-lg font-semibold">Attendance Calendar (Last 3 Months)</h2>
         <EmployeeAttendanceCalendar employee={employee} />
       </section>
 
-      <AdvanceSection employeeId={id} outstanding={outstanding} transactions={advances ?? []} />
+      <AdvanceSection employeeId={id} joiningDate={employee.joiningDate} outstanding={outstanding} transactions={advances ?? []} />
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Recent Attendance</h2>
+          <h2 className="text-lg font-semibold">Recent Attendance</h2>
           <button className="text-sm text-muted-foreground hover:underline" onClick={exportAttendanceCSV}>
             Export CSV
           </button>
@@ -158,7 +164,7 @@ export function EmployeeDetailPage() {
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Advance Ledger</h2>
+          <h2 className="text-lg font-semibold">Advance Ledger</h2>
           <button className="text-sm text-muted-foreground hover:underline" onClick={exportAdvanceLedgerCSV}>
             Export CSV
           </button>
@@ -196,7 +202,7 @@ export function EmployeeDetailPage() {
       </section>
 
       <section className="rounded-xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Salary Slip</h2>
+        <h2 className="text-lg font-semibold">Salary Slip</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           View and print this employee's salary slip for any month from the{' '}
           <Link to="/salary" className="underline">
@@ -211,19 +217,30 @@ export function EmployeeDetailPage() {
 
 function AdvanceSection({
   employeeId,
+  joiningDate,
   outstanding,
 }: {
   employeeId: string;
+  joiningDate: string;
   outstanding: number;
   transactions: { id: string; type: AdvanceTransactionType; amountPaise: number }[];
 }) {
+  const joinedInFuture = joiningDate > todayISO();
   const [mode, setMode] = useState<'ADVANCE' | 'REPAYMENT'>('ADVANCE');
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(joinedInFuture ? '' : todayISO());
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (joinedInFuture) {
+      toast.warning(`Entries can be added from the joining date (${formatDisplayDate(joiningDate)}).`);
+      return;
+    }
+    if (!date || date < joiningDate) {
+      toast.warning(`Date cannot be before the joining date (${formatDisplayDate(joiningDate)}).`);
+      return;
+    }
     const amountPaise = parseRupeeInputToPaise(amount);
     if (amountPaise <= 0) {
       toast.warning('Amount must be greater than zero.');
@@ -247,7 +264,7 @@ function AdvanceSection({
   return (
     <section className="rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">Advance Payment</h2>
+        <h2 className="text-lg font-semibold">Advance Payment</h2>
         <p className="text-sm text-muted-foreground">
           Advance pending: <span className="font-semibold text-foreground">{formatPaiseAsINR(outstanding)}</span>
         </p>
@@ -263,15 +280,22 @@ function AdvanceSection({
       </div>
 
       <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="emp-advance-date">Date</Label>
-          <DatePicker id="emp-advance-date" value={date} onChange={setDate} disabled={(d) => d > new Date()} />
+          <DatePicker
+            id="emp-advance-date"
+            value={date}
+            onChange={setDate}
+            minDate={joiningDate}
+            disabled={(d) => d > new Date()}
+            triggerDisabled={joinedInFuture}
+          />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="emp-advance-amount">Amount (₹)</Label>
           <Input id="emp-advance-amount" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="emp-advance-notes">Notes (optional)</Label>
           <Input id="emp-advance-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>

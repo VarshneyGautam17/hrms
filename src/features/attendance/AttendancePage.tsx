@@ -80,7 +80,7 @@ export function AttendancePage() {
           <h1 className="text-xl font-semibold">Attendance</h1>
           <p className="text-sm text-muted-foreground">Mark Present, Half Day or Absent for each employee on the selected date.</p>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="attendance-date">Date</Label>
           <DatePicker id="attendance-date" value={date} onChange={setDate} disabled={(d) => d > new Date()} className="w-full sm:w-44" />
         </div>

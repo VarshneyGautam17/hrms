@@ -205,7 +205,7 @@ export function HistoryPage() {
           return (
             <section key={group.period} className="flex flex-col gap-2">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="text-base font-semibold">
+                <h2 className="text-lg font-semibold">
                   {formatDisplayPeriod(group.period)}{' '}
                   <span className="text-sm font-normal text-muted-foreground">
                     · {group.records.length} employee{group.records.length === 1 ? '' : 's'}
@@ -272,7 +272,7 @@ function HistoryRow({ record, expanded, onToggle }: { record: HistoryRecord; exp
           <Chip className="bg-green-50 text-green-800">P {a.present}</Chip>
           <Chip className="bg-amber-50 text-amber-800">½ {a.halfDay}</Chip>
           <Chip className="bg-red-50 text-red-800">A {a.absent}</Chip>
-          <Chip className="bg-muted text-foreground">NM {a.notMarked}</Chip>
+          <Chip className="bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200">NM {a.notMarked}</Chip>
           <Chip className="bg-sky-50 text-sky-800">WO {a.weeklyOff}</Chip>
           {a.workedOnOff > 0 && <Chip className="bg-violet-50 text-violet-800">+Off {a.workedOnOff}</Chip>}
         </div>

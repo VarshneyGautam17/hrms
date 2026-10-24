@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { EmptyState } from '@/components/empty-state';
 import { TableSkeleton } from '@/components/table-skeleton';
 import { Spinner } from '@/components/spinner';
+import { MaskedAmount } from '@/components/masked-amount';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,7 +133,9 @@ export function EmployeesPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{e.department ?? '—'}</TableCell>
-                  <TableCell>{formatPaiseAsINR(e.monthlySalaryPaise)}</TableCell>
+                  <TableCell>
+                    <MaskedAmount value={formatPaiseAsINR(e.monthlySalaryPaise)} />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <button
@@ -197,7 +200,7 @@ export function EmployeesPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="delete-employee-password">Password</Label>
               <Input
                 id="delete-employee-password"

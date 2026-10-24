@@ -49,7 +49,7 @@ export function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
@@ -60,7 +60,7 @@ export function LoginPage() {
                 autoComplete="email"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"

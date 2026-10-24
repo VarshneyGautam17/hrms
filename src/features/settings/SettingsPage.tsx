@@ -21,18 +21,22 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageLoader, Spinner } from '@/components/spinner';
+import { PasswordConfirmDialog } from '@/components/password-confirm-dialog';
 import { WEEKDAY_LABELS } from '../../utils/dates';
 import type { AppSettings, AttendanceRecord, Employee } from '../../types';
 
 export function SettingsPage() {
   const existing = useDocument<AppSettings>(settingsDocRef(), []);
   const [form, setForm] = useState<AppSettings | null>(null);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
 
   useEffect(() => {
     if (existing && !form) setForm(existing);
   }, [existing, form]);
 
   if (!form) return <PageLoader />;
+
+  const changed = !!existing && existing.weeklyOffDay !== form.weeklyOffDay;
 
   async function handleSave() {
     if (!form) return;
@@ -57,7 +61,7 @@ export function SettingsPage() {
       </div>
 
       <div className="rounded-xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Weekly Off Day</h2>
+        <h2 className="text-lg font-semibold">Weekly Off Day</h2>
         <p className="mt-1 text-sm text-muted-foreground">This day is a fixed paid weekly off for every employee.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {WEEKDAY_LABELS.map((label, idx) => (
@@ -75,7 +79,7 @@ export function SettingsPage() {
       </div>
 
       <div className="rounded-xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Salary Divisor</h2>
+        <h2 className="text-lg font-semibold">Salary Divisor</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Always the actual number of days in that calendar month (28–31) — not configurable.
         </p>
@@ -87,8 +91,23 @@ export function SettingsPage() {
       </p>
 
       <div className="flex items-center gap-3">
-        <Button onClick={handleSave}>Save Settings</Button>
+        <Button onClick={() => setConfirmSaveOpen(true)} disabled={!changed}>
+          Save Settings
+        </Button>
+        {changed && (
+          <Button variant="ghost" onClick={() => existing && setForm(existing)}>
+            Discard Changes
+          </Button>
+        )}
       </div>
+
+      <PasswordConfirmDialog
+        open={confirmSaveOpen}
+        onOpenChange={setConfirmSaveOpen}
+        description="Re-enter your account password to change settings. This affects every employee's attendance and salary."
+        confirmLabel="Confirm & Save"
+        onConfirmed={handleSave}
+      />
 
       <DataSummary />
       <DataManagement />
@@ -154,7 +173,7 @@ function DataManagement() {
   return (
     <>
       <div className="rounded-xl border border-red-200 bg-card p-4">
-        <h2 className="text-sm font-semibold text-destructive">Reset All Data</h2>
+        <h2 className="text-lg font-semibold text-destructive">Reset All Data</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Permanently deletes every employee, attendance, advance, payment and setting from this account. This
           cannot be undone — download the History PDFs first if you might need this data again.
@@ -199,7 +218,7 @@ function DataManagement() {
             <DialogDescription>For your safety, re-enter your account password to permanently reset all data.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="reset-password">Password</Label>
               <Input
                 id="reset-password"
