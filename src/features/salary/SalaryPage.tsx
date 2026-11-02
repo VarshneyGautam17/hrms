@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2 } from 'lucide-react';
 import { employeesQuery } from '../../db/repositories/employees';
+import { advancesForEmployeeQuery } from '../../db/repositories/advances';
 import { useCollection } from '../../firebase/hooks';
 import { computeSalarySlip, finalizeSalary, type SalarySlip } from '../../services/salaryService';
 import { downloadSalarySlipPdf, printSalarySlip, shareSalarySlipOnWhatsApp } from '../../services/pdfService';
@@ -23,7 +24,7 @@ import {
 import { PageLoader, Spinner } from '@/components/spinner';
 import { formatPaiseAsINR, parseRupeeInputToPaise, paiseToRupees } from '../../utils/currency';
 import { currentPeriod, previousPeriods, formatDisplayPeriod, todayISO, formatDisplayDate, dateToPeriod } from '../../utils/dates';
-import type { Employee } from '../../types';
+import type { AdvanceTransaction, Employee } from '../../types';
 import type { DayClassification } from '../../services/attendanceSummary';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -128,6 +129,10 @@ function SalarySlipView({
   const [finalizing, setFinalizing] = useState(false);
   const [confirmFinalizeOpen, setConfirmFinalizeOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const advances = useCollection<AdvanceTransaction>(advancesForEmployeeQuery(employeeId), [employeeId]);
+  const advancesTakenThisPeriod = (advances ?? [])
+    .filter((tx) => tx.type === 'ADVANCE' && tx.date.startsWith(period))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   async function loadSlip() {
     setLoading(true);
@@ -367,6 +372,7 @@ function SalarySlipView({
 
           <Section title="Advance">
             <dl className="divide-y text-sm">
+              <AdvanceTakenRow period={period} transactions={advancesTakenThisPeriod} />
               <Row label="Advance Pending" hint="Before this salary" value={formatPaiseAsINR(s.outstandingAdvanceBeforePaise)} />
               <Row label="Advance Cut from Salary" value={`− ${formatPaiseAsINR(s.advanceRecoveredPaise)}`} />
               <Row label="Advance Still Pending" value={formatPaiseAsINR(s.advanceCarriedForwardPaise)} strong />
@@ -493,6 +499,49 @@ function PaidDaysRow({ slip }: { slip: SalarySlip }) {
             </p>
           )}
           {slip.finalized && <p className="text-muted-foreground">Dates show the attendance as it is marked now.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The "Advance Taken This Month" row. Clicking it lists every advance date and amount behind the total. */
+function AdvanceTakenRow({ period, transactions }: { period: string; transactions: AdvanceTransaction[] }) {
+  const [open, setOpen] = useState(false);
+  const totalPaise = transactions.reduce((sum, tx) => sum + tx.amountPaise, 0);
+
+  return (
+    <div className="py-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-baseline justify-between gap-4 text-left"
+      >
+        <span className="text-muted-foreground">
+          Advance Taken This Month
+          <span className="block text-xs">
+            <span className="no-print text-primary underline underline-offset-2">{open ? 'Hide dates' : 'Show dates'}</span>
+          </span>
+        </span>
+        <span className="tabular-nums">{formatPaiseAsINR(totalPaise)}</span>
+      </button>
+
+      {open && (
+        <div className="no-print mt-2 flex flex-col gap-1.5 rounded-lg border bg-background p-3 text-xs">
+          {transactions.length === 0 ? (
+            <p className="text-muted-foreground">No advance taken in {formatDisplayPeriod(period)}.</p>
+          ) : (
+            transactions.map((tx) => (
+              <div key={tx.id} className="flex items-start justify-between gap-3">
+                <span>
+                  {format(parseISO(tx.date), 'EEE, d MMM')}
+                  {tx.notes && <span className="block text-muted-foreground">Reason: {tx.notes}</span>}
+                </span>
+                <span className="shrink-0 font-medium tabular-nums">{formatPaiseAsINR(tx.amountPaise)}</span>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
